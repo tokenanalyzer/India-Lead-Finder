@@ -4,20 +4,19 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Search, TrendingUp, Award, Users, ChevronRight } from 'lucide-react-native';
+import { Search, TrendingUp, Award, Users, ChevronRight, Zap } from 'lucide-react-native';
 import { useColors } from '@/hooks/useColors';
 import { useLeadsStore } from '@/store/leadsStore';
 import { LeadCard } from '@/components/LeadCard';
 import { EmptyState } from '@/components/EmptyState';
 
-function StatTile({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color: string }) {
+function StatTile({ label, value, color }: { label: string; value: string | number; color: string }) {
   const colors = useColors();
   return (
     <View style={[styles.tile, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={[styles.tileDot, { backgroundColor: color }]} />
       <Text style={[styles.tileValue, { color: colors.foreground }]}>{value}</Text>
       <Text style={[styles.tileLabel, { color: colors.mutedForeground }]}>{label}</Text>
-      {sub ? <Text style={[styles.tileSub, { color }]}>{sub}</Text> : null}
     </View>
   );
 }
@@ -41,10 +40,20 @@ export default function DashboardScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPad + 12 }]}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={[styles.appName, { color: colors.primary }]}>Data AI</Text>
-            <Text style={[styles.date, { color: colors.mutedForeground }]}>{today}</Text>
+          {/* ── Brand mark ── */}
+          <View style={styles.brandBlock}>
+            <View style={[styles.brandIconWrap, { backgroundColor: colors.primary + '18', borderColor: colors.primary + '30' }]}>
+              <Zap size={16} color={colors.primary} fill={colors.primary} />
+            </View>
+            <View>
+              <Text style={styles.brandName}>
+                <Text style={[styles.brandWord, { color: colors.foreground }]}>data</Text>
+                <Text style={[styles.brandAI, { color: colors.primary }]}>AI</Text>
+              </Text>
+              <Text style={[styles.brandDate, { color: colors.mutedForeground }]}>{today}</Text>
+            </View>
           </View>
+
           <TouchableOpacity
             style={[styles.searchFab, { backgroundColor: colors.primary }]}
             onPress={() => router.push('/(tabs)/search')}
@@ -125,8 +134,25 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 20, paddingBottom: 16 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  appName: { fontFamily: 'Inter_700Bold', fontSize: 28, letterSpacing: -0.5 },
-  date: { fontFamily: 'Inter_400Regular', fontSize: 13, marginTop: 2 },
+
+  brandBlock: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  brandIconWrap: {
+    width: 36, height: 36, borderRadius: 10, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  brandName: { lineHeight: 26 },
+  brandWord: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 24,
+    letterSpacing: -0.3,
+  },
+  brandAI: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 24,
+    letterSpacing: 1.5,
+  },
+  brandDate: { fontFamily: 'Inter_400Regular', fontSize: 12, marginTop: 1 },
+
   searchFab: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   scroll: { paddingHorizontal: 16 },
   tilesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
@@ -137,14 +163,11 @@ const styles = StyleSheet.create({
   tileDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 4 },
   tileValue: { fontFamily: 'Inter_700Bold', fontSize: 26 },
   tileLabel: { fontFamily: 'Inter_400Regular', fontSize: 12 },
-  tileSub: { fontFamily: 'Inter_500Medium', fontSize: 11, marginTop: 2 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   sectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 17 },
   seeAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   seeAllText: { fontFamily: 'Inter_500Medium', fontSize: 13 },
-  quickStats: {
-    borderRadius: 14, borderWidth: 1, padding: 16, marginTop: 16, gap: 10,
-  },
+  quickStats: { borderRadius: 14, borderWidth: 1, padding: 16, marginTop: 16, gap: 10 },
   quickStatsTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 15, marginBottom: 4 },
   quickRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   quickText: { fontFamily: 'Inter_400Regular', fontSize: 13 },
