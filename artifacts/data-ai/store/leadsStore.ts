@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Lead } from '@/types/lead';
+import type { Lead, ContactType } from '@/types/lead';
 import * as DB from '@/db/database';
 
 interface LeadsState {
@@ -11,6 +11,7 @@ interface LeadsState {
   deleteLead: (id: string) => Promise<void>;
   getLeadById: (id: string) => Lead | undefined;
   refreshLeads: () => Promise<void>;
+  logContact: (id: string, type: ContactType) => Promise<void>;
 }
 
 export const useLeadsStore = create<LeadsState>((set, get) => ({
@@ -71,4 +72,22 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   },
 
   getLeadById: (id: string) => get().leads.find(l => l.id === id),
+
+  logContact: async (id: string, type: ContactType) => {
+    const lead = get().leads.find(l => l.id === id);
+    if (!lead) return;
+    const entry = { type, at: new Date().toISOString() };
+    const updated: Lead = {
+      ...lead,
+      contactLog: [...(lead.contactLog ?? []), entry],
+    };
+    try {
+      await DB.updateLead(updated);
+      set(state => ({
+        leads: state.leads.map(l => (l.id === id ? updated : l)),
+      }));
+    } catch (e) {
+      console.error('Failed to log contact:', e);
+    }
+  },
 }));

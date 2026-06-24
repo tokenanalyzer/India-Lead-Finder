@@ -16,6 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppSplash } from "@/components/AppSplash";
 import { useLeadsStore } from "@/store/leadsStore";
+import { useSettingsStore } from "@/store/settingsStore";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -23,9 +24,13 @@ const queryClient = new QueryClient();
 
 function AppInitializer({ children }: { children: React.ReactNode }) {
   const initialize = useLeadsStore((s) => s.initialize);
+  const loadSettings = useSettingsStore((s) => s.load);
+
   useEffect(() => {
     initialize();
-  }, [initialize]);
+    loadSettings();
+  }, [initialize, loadSettings]);
+
   return <>{children}</>;
 }
 

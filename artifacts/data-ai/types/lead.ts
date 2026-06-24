@@ -1,5 +1,12 @@
 export type LeadStatus = 'New' | 'Contacted' | 'Follow Up' | 'Proposal' | 'Won' | 'Lost';
 
+export type ContactType = 'call' | 'whatsapp';
+
+export interface ContactEntry {
+  type: ContactType;
+  at: string; // ISO timestamp
+}
+
 export interface Lead {
   id: string;
   name: string;
@@ -17,6 +24,7 @@ export interface Lead {
   placeId: string;
   lat?: number;
   lng?: number;
+  contactLog?: ContactEntry[];
 }
 
 export interface SearchResult {
@@ -64,3 +72,15 @@ export const BUSINESS_CATEGORIES = [
   'Hardware Store', 'Printing Shop', 'Laundry', 'Tailor Shop',
   'Furniture Store', 'Flower Shop', 'Pet Shop', 'Optician',
 ];
+
+/** Returns human-readable "2h ago", "3d ago" etc. */
+export function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}

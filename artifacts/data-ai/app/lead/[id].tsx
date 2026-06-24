@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ArrowLeft, Phone, Globe, ChevronDown, Plus, X,
-  Trash2, RefreshCw, Check, Copy, MessageCircle,
+  Trash2, RefreshCw, Check, Copy, MessageCircle, Clock,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -15,7 +15,7 @@ import { useColors } from '@/hooks/useColors';
 import { useLeadsStore } from '@/store/leadsStore';
 import { getPlaceDetails } from '@/services/googleMaps';
 import { StatusBadge } from '@/components/StatusBadge';
-import { STATUS_COLORS, LEAD_STATUSES } from '@/types/lead';
+import { STATUS_COLORS, LEAD_STATUSES, timeAgo } from '@/types/lead';
 import type { LeadStatus } from '@/types/lead';
 
 function CopyBtn({ text }: { text: string }) {
@@ -46,6 +46,7 @@ export default function LeadDetailScreen() {
   const lead = useLeadsStore(s => s.getLeadById(id));
   const updateLead = useLeadsStore(s => s.updateLead);
   const deleteLead = useLeadsStore(s => s.deleteLead);
+  const logContact = useLeadsStore(s => s.logContact);
 
   const [status, setStatus] = useState<LeadStatus>(lead?.status ?? 'New');
   const [notes, setNotes] = useState(lead?.notes ?? '');
@@ -107,10 +108,11 @@ export default function LeadDetailScreen() {
     }
   }, [lead?.placeId]);
 
-  const handleCall = () => {
+  const handleCall = useCallback(async () => {
     if (!phone) { Alert.alert('No Phone', 'No phone number available. Tap "Get Details" to fetch.'); return; }
     Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`);
-  };
+    if (lead) await logContact(lead.id, 'call');
+  }, [phone, lead, logContact]);
 
   const handleWebsite = () => {
     if (!website) { Alert.alert('No Website', 'No website available. Tap "Get Details" to fetch.'); return; }
@@ -118,13 +120,14 @@ export default function LeadDetailScreen() {
     Linking.openURL(url);
   };
 
-  const handleWhatsApp = () => {
+  const handleWhatsApp = useCallback(async () => {
     if (!phone) { Alert.alert('No Phone', 'No phone number available. Tap "Details" to fetch.'); return; }
     const digits = phone.replace(/\D/g, '');
     const number = digits.startsWith('91') && digits.length === 12 ? digits : `91${digits}`;
     const msg = encodeURIComponent(`Hello, I came across your business "${lead?.name}" and would like to connect.`);
     Linking.openURL(`https://wa.me/${number}?text=${msg}`);
-  };
+    if (lead) await logContact(lead.id, 'whatsapp');
+  }, [phone, lead, logContact]);
 
   const addTag = () => {
     const t = newTag.trim();
@@ -142,6 +145,8 @@ export default function LeadDetailScreen() {
       </View>
     );
   }
+
+  const contactLog = lead.contactLog ?? [];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -331,6 +336,52 @@ export default function LeadDetailScreen() {
           </View>
         </View>
 
+        {/* ── Contact History ── */}
+        {contactLog.length > 0 ? (
+          <View style={styles.fieldGroup}>
+            <View style={styles.fieldLabelRow}>
+              <Clock size={13} color={colors.mutedForeground} />
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Contact History</Text>
+              <Text style={[styles.histCount, { color: colors.mutedForeground }]}>
+                {contactLog.length} contact{contactLog.length !== 1 ? 's' : ''}
+              </Text>
+            </View>
+            <View style={[styles.historyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {[...contactLog].reverse().slice(0, 10).map((entry, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.historyEntry,
+                    i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+                  ]}
+                >
+                  <View style={[
+                    styles.histIcon,
+                    { backgroundColor: entry.type === 'call' ? '#22C55E18' : '#25D36618' },
+                  ]}>
+                    {entry.type === 'call'
+                      ? <Phone size={13} color="#22C55E" />
+                      : <MessageCircle size={13} color="#25D366" />}
+                  </View>
+                  <View style={styles.histText}>
+                    <Text style={[styles.histType, { color: colors.foreground }]}>
+                      {entry.type === 'call' ? 'Phone Call' : 'WhatsApp'}
+                    </Text>
+                    <Text style={[styles.histTime, { color: colors.mutedForeground }]}>
+                      {new Date(entry.at).toLocaleDateString('en-IN', {
+                        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                      })}
+                    </Text>
+                  </View>
+                  <Text style={[styles.histAgo, { color: colors.mutedForeground }]}>
+                    {timeAgo(entry.at)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         {/* ── Save ── */}
         <TouchableOpacity
           style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: isSaving ? 0.7 : 1 }]}
@@ -439,6 +490,15 @@ const styles = StyleSheet.create({
     borderRadius: 100, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 5, minWidth: 100,
   },
   tagInputText: { fontFamily: 'Inter_400Regular', fontSize: 12, minWidth: 60, padding: 0 },
+
+  histCount: { fontFamily: 'Inter_400Regular', fontSize: 12, marginLeft: 'auto' },
+  historyCard: { borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
+  historyEntry: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
+  histIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  histText: { flex: 1 },
+  histType: { fontFamily: 'Inter_500Medium', fontSize: 13 },
+  histTime: { fontFamily: 'Inter_400Regular', fontSize: 11, marginTop: 1 },
+  histAgo: { fontFamily: 'Inter_400Regular', fontSize: 11 },
 
   saveBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

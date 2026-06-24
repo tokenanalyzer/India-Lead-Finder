@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Platform, Alert, Modal,
+  View, Text, StyleSheet, TouchableOpacity, Platform, Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MapPin, Star, Copy, Check, ChevronRight } from 'lucide-react-native';
+import { MapPin, Star, Copy, Check, ChevronRight, Phone, MessageCircle } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useColors } from '@/hooks/useColors';
 import { StatusBadge } from './StatusBadge';
 import type { Lead } from '@/types/lead';
+import { timeAgo } from '@/types/lead';
 
 interface Props {
   lead: Lead;
@@ -34,6 +35,11 @@ export function LeadCard({ lead }: Props) {
     ...(lead.phone ? [{ label: 'Copy Phone', value: lead.phone, field: 'phone' }] : []),
     ...(lead.website ? [{ label: 'Copy Website', value: lead.website, field: 'website' }] : []),
   ].filter(o => !!o.value);
+
+  // Last contact
+  const lastContact = lead.contactLog && lead.contactLog.length > 0
+    ? lead.contactLog[lead.contactLog.length - 1]
+    : null;
 
   return (
     <>
@@ -79,6 +85,17 @@ export function LeadCard({ lead }: Props) {
             <Text style={[styles.address, { color: colors.mutedForeground }]} numberOfLines={1}>
               {lead.address}
             </Text>
+          ) : null}
+
+          {lastContact ? (
+            <View style={styles.contactedRow}>
+              {lastContact.type === 'call'
+                ? <Phone size={11} color={colors.mutedForeground} />
+                : <MessageCircle size={11} color={colors.mutedForeground} />}
+              <Text style={[styles.contactedText, { color: colors.mutedForeground }]}>
+                {lastContact.type === 'call' ? 'Called' : 'WhatsApp'} {timeAgo(lastContact.at)}
+              </Text>
+            </View>
           ) : null}
         </View>
         <View style={styles.chevronWrap}>
@@ -148,6 +165,8 @@ const styles = StyleSheet.create({
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaText: { fontFamily: 'Inter_400Regular', fontSize: 12 },
   address: { fontFamily: 'Inter_400Regular', fontSize: 12, marginTop: 2 },
+  contactedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  contactedText: { fontFamily: 'Inter_400Regular', fontSize: 11 },
   chevronWrap: { paddingRight: 10 },
 
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },

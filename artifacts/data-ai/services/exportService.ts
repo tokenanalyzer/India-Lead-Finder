@@ -2,6 +2,13 @@ import { Platform, Alert } from 'react-native';
 import Papa from 'papaparse';
 import type { Lead } from '@/types/lead';
 
+// expo-file-system types for native-only usage
+interface FSModule {
+  writeAsStringAsync: (uri: string, contents: string, options?: { encoding?: string }) => Promise<void>;
+  documentDirectory: string | null;
+  EncodingType: { UTF8: string; Base64: string };
+}
+
 function leadsToCSV(leads: Lead[]): string {
   const rows = leads.map(l => ({
     Name: l.name,
@@ -15,6 +22,10 @@ function leadsToCSV(leads: Lead[]): string {
     Notes: l.notes,
     Tags: l.tags.join('; '),
     'Saved On': l.savedAt,
+    'Last Contacted': l.contactLog && l.contactLog.length > 0
+      ? `${l.contactLog[l.contactLog.length - 1].type} @ ${l.contactLog[l.contactLog.length - 1].at}`
+      : '',
+    'Contact Count': (l.contactLog?.length ?? 0).toString(),
   }));
   return Papa.unparse(rows);
 }
@@ -22,13 +33,11 @@ function leadsToCSV(leads: Lead[]): string {
 async function shareFile(uri: string, mimeType: string, title: string): Promise<void> {
   try {
     const Sharing = await import('expo-sharing');
-    const FileSystem = await import('expo-file-system');
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(uri, { mimeType, dialogTitle: title });
     } else {
       Alert.alert('Saved', `File saved to: ${uri}`);
     }
-    void FileSystem;
   } catch {
     Alert.alert('Export', `File ready at: ${uri}`);
   }
@@ -48,9 +57,10 @@ export async function exportToCSV(leads: Lead[]): Promise<void> {
     return;
   }
 
-  const { writeAsStringAsync, documentDirectory, EncodingType } = await import('expo-file-system');
-  const fileUri = (documentDirectory ?? '') + 'data_ai_leads.csv';
-  await writeAsStringAsync(fileUri, csv, { encoding: EncodingType.UTF8 });
+  const mod = await import('expo-file-system');
+  const FS = mod as unknown as FSModule;
+  const fileUri = (FS.documentDirectory ?? '') + 'data_ai_leads.csv';
+  await FS.writeAsStringAsync(fileUri, csv, { encoding: FS.EncodingType.UTF8 });
   await shareFile(fileUri, 'text/csv', 'Export Leads as CSV');
 }
 
@@ -68,8 +78,9 @@ export async function exportToJSON(leads: Lead[]): Promise<void> {
     return;
   }
 
-  const { writeAsStringAsync, documentDirectory, EncodingType } = await import('expo-file-system');
-  const fileUri = (documentDirectory ?? '') + 'data_ai_leads.json';
-  await writeAsStringAsync(fileUri, json, { encoding: EncodingType.UTF8 });
+  const mod = await import('expo-file-system');
+  const FS = mod as unknown as FSModule;
+  const fileUri = (FS.documentDirectory ?? '') + 'data_ai_leads.json';
+  await FS.writeAsStringAsync(fileUri, json, { encoding: FS.EncodingType.UTF8 });
   await shareFile(fileUri, 'application/json', 'Export Leads as JSON');
 }

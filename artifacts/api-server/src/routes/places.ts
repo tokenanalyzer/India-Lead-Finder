@@ -3,13 +3,22 @@ import type { Request, Response } from "express";
 
 const router = Router();
 
+function resolveApiKey(req: Request): string | undefined {
+  // User-supplied key from the app's Settings screen takes priority
+  const raw = req.headers["x-google-api-key"];
+  const headerKey = Array.isArray(raw) ? raw[0] : raw;
+  if (headerKey && headerKey.trim()) return headerKey.trim();
+  return process.env.GOOGLE_MAPS_API_KEY;
+}
+
 router.get("/search", async (req: Request, res: Response) => {
   const { city, category } = req.query as { city?: string; category?: string };
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  const apiKey = resolveApiKey(req);
 
   if (!apiKey) {
     res.status(503).json({
-      error: "Google Maps API key is not configured. Please add GOOGLE_MAPS_API_KEY secret.",
+      error:
+        "No API key configured. Add GOOGLE_MAPS_API_KEY as a server secret, or enter your own key in the app's Settings tab.",
     });
     return;
   }
@@ -62,11 +71,11 @@ router.get("/search", async (req: Request, res: Response) => {
 });
 
 router.get("/details/:placeId", async (req: Request, res: Response) => {
-  const { placeId } = req.params;
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  const placeId = req.params["placeId"] as string;
+  const apiKey = resolveApiKey(req);
 
   if (!apiKey) {
-    res.status(503).json({ error: "Google Maps API key is not configured" });
+    res.status(503).json({ error: "No API key configured" });
     return;
   }
 
