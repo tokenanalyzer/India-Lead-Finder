@@ -15,10 +15,6 @@ import colors from "@/constants/colors";
  * device's appearance setting.
  */
 export function useColors() {
-  const scheme = useColorScheme();
-  const palette =
-    scheme === "dark" && "dark" in colors
-      ? (colors as Record<string, typeof colors.light>).dark
-      : colors.light;
-  return { ...palette, radius: colors.radius };
+  // Always use dark palette — Data AI is a professional dark-theme app
+  return { ...colors.dark, radius: colors.radius };
 }

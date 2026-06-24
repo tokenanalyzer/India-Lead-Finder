@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList, Modal,
   ActivityIndicator, TextInput, Alert, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, MapPin, Star, ChevronDown, Check, X } from 'lucide-react-native';
+import { Search, MapPin, Star, ChevronDown, Check, X, Copy } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { useColors } from '@/hooks/useColors';
 import { useLeadsStore } from '@/store/leadsStore';
 import { searchPlaces } from '@/services/googleMaps';
-import { StatusBadge } from '@/components/StatusBadge';
 import { EmptyState } from '@/components/EmptyState';
 import { INDIAN_CITIES, BUSINESS_CATEGORIES } from '@/types/lead';
 import type { SearchResult, Lead } from '@/types/lead';
@@ -31,6 +31,8 @@ export default function SearchScreen() {
   const [picker, setPicker] = useState<PickerType>(null);
   const [pickerQuery, setPickerQuery] = useState('');
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+  const [copyItem, setCopyItem] = useState<SearchResult | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const savedPlaceIds = useMemo(() => new Set(leads.map(l => l.placeId)), [leads]);
 
@@ -83,6 +85,14 @@ export default function SearchScreen() {
     } finally {
       setSavingIds(prev => { const s = new Set(prev); s.delete(result.placeId); return s; });
     }
+  };
+
+  const handleCopy = async (text: string, field: string) => {
+    if (!text) return;
+    await Clipboard.setStringAsync(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 1500);
+    setTimeout(() => setCopyItem(null), 1600);
   };
 
   const pickerItems = useMemo(() => {
@@ -170,7 +180,12 @@ export default function SearchScreen() {
           const saved = savedPlaceIds.has(item.placeId);
           const saving = savingIds.has(item.placeId);
           return (
-            <View style={[styles.resultCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <TouchableOpacity
+              style={[styles.resultCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+              activeOpacity={0.95}
+              onLongPress={() => setCopyItem(item)}
+              delayLongPress={400}
+            >
               <View style={styles.resultInfo}>
                 <Text style={[styles.resultName, { color: colors.foreground }]} numberOfLines={2}>
                   {item.name}
@@ -206,16 +221,54 @@ export default function SearchScreen() {
                   : <Text style={styles.saveBtnText}>Save</Text>
                 }
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           );
         }}
       />
 
+      {/* ── Long-press copy modal ── */}
+      <Modal visible={copyItem !== null} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setCopyItem(null)}>
+          <View style={[styles.copySheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.copySheetTitle, { color: colors.foreground }]} numberOfLines={1}>
+              {copyItem?.name}
+            </Text>
+            {[
+              { label: 'Copy Name', value: copyItem?.name ?? '', field: 'name' },
+              { label: 'Copy Address', value: copyItem?.address ?? '', field: 'address' },
+            ].filter(o => !!o.value).map(opt => (
+              <TouchableOpacity
+                key={opt.field}
+                style={[styles.copyOption, { borderTopColor: colors.border }]}
+                onPress={() => handleCopy(opt.value, opt.field)}
+              >
+                {copiedField === opt.field
+                  ? <Check size={16} color="#22C55E" />
+                  : <Copy size={16} color={colors.primary} />
+                }
+                <Text style={[styles.copyOptionText, {
+                  color: copiedField === opt.field ? '#22C55E' : colors.foreground,
+                }]}>
+                  {copiedField === opt.field ? 'Copied!' : opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={[styles.copyOption, { borderTopColor: colors.border }]}
+              onPress={() => setCopyItem(null)}
+            >
+              <Text style={[styles.copyOptionText, { color: colors.mutedForeground }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── City / Category picker modal ── */}
       <Modal visible={picker !== null} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+        <View style={styles.pickerOverlay}>
+          <View style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
+            <View style={styles.pickerHeader}>
+              <Text style={[styles.pickerTitle, { color: colors.foreground }]}>
                 {picker === 'city' ? 'Select City' : 'Select Category'}
               </Text>
               <TouchableOpacity onPress={() => setPicker(null)}>
@@ -223,7 +276,7 @@ export default function SearchScreen() {
               </TouchableOpacity>
             </View>
             <TextInput
-              style={[styles.modalSearch, { backgroundColor: colors.muted, color: colors.foreground }]}
+              style={[styles.pickerSearch, { backgroundColor: colors.muted, color: colors.foreground }]}
               placeholder="Search..."
               placeholderTextColor={colors.mutedForeground}
               value={pickerQuery}
@@ -292,14 +345,29 @@ const styles = StyleSheet.create({
     borderWidth: 1, minWidth: 60, alignItems: 'center',
   },
   saveBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#fff' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%' },
-  modalHeader: {
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
+  copySheet: {
+    width: 280, borderRadius: 16, borderWidth: 1, overflow: 'hidden',
+  },
+  copySheetTitle: {
+    fontFamily: 'Inter_600SemiBold', fontSize: 13,
+    paddingHorizontal: 16, paddingVertical: 13,
+  },
+  copyOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  copyOptionText: { fontFamily: 'Inter_500Medium', fontSize: 15 },
+
+  pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  pickerSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%' },
+  pickerHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     padding: 20, paddingBottom: 12,
   },
-  modalTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 18 },
-  modalSearch: {
+  pickerTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 18 },
+  pickerSearch: {
     marginHorizontal: 16, marginBottom: 8, borderRadius: 10,
     padding: 12, fontFamily: 'Inter_400Regular', fontSize: 15,
   },

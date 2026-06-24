@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ArrowLeft, Phone, Globe, ChevronDown, Plus, X,
-  Trash2, RefreshCw, Check, Copy,
+  Trash2, RefreshCw, Check, Copy, MessageCircle,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -118,6 +118,14 @@ export default function LeadDetailScreen() {
     Linking.openURL(url);
   };
 
+  const handleWhatsApp = () => {
+    if (!phone) { Alert.alert('No Phone', 'No phone number available. Tap "Details" to fetch.'); return; }
+    const digits = phone.replace(/\D/g, '');
+    const number = digits.startsWith('91') && digits.length === 12 ? digits : `91${digits}`;
+    const msg = encodeURIComponent(`Hello, I came across your business "${lead?.name}" and would like to connect.`);
+    Linking.openURL(`https://wa.me/${number}?text=${msg}`);
+  };
+
   const addTag = () => {
     const t = newTag.trim();
     if (t && !tags.includes(t)) { setTags(prev => [...prev, t]); setNewTag(''); }
@@ -192,15 +200,23 @@ export default function LeadDetailScreen() {
             onPress={handleCall}
             activeOpacity={0.8}
           >
-            <Phone size={20} color="#22C55E" />
+            <Phone size={18} color="#22C55E" />
             <Text style={[styles.actionBtnText, { color: '#22C55E' }]}>Call</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: '#25D36618', borderColor: '#25D36635' }]}
+            onPress={handleWhatsApp}
+            activeOpacity={0.8}
+          >
+            <MessageCircle size={18} color="#25D366" />
+            <Text style={[styles.actionBtnText, { color: '#25D366' }]}>WhatsApp</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}
             onPress={handleWebsite}
             activeOpacity={0.8}
           >
-            <Globe size={20} color={colors.primary} />
+            <Globe size={18} color={colors.primary} />
             <Text style={[styles.actionBtnText, { color: colors.primary }]}>Website</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -211,7 +227,7 @@ export default function LeadDetailScreen() {
           >
             {isFetching
               ? <ActivityIndicator size="small" color={colors.mutedForeground} />
-              : <RefreshCw size={18} color={colors.mutedForeground} />
+              : <RefreshCw size={16} color={colors.mutedForeground} />
             }
             <Text style={[styles.actionBtnText, { color: colors.mutedForeground }]}>Details</Text>
           </TouchableOpacity>
