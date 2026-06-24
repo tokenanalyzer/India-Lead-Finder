@@ -1,10 +1,10 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Search, TrendingUp, Award, Users, ChevronRight, Zap } from 'lucide-react-native';
+import { Search, TrendingUp, Award, Users, ChevronRight } from 'lucide-react-native';
 import { useColors } from '@/hooks/useColors';
 import { useLeadsStore } from '@/store/leadsStore';
 import { LeadCard } from '@/components/LeadCard';
@@ -42,15 +42,19 @@ export default function DashboardScreen() {
         <View style={styles.headerRow}>
           {/* ── Brand mark ── */}
           <View style={styles.brandBlock}>
-            <View style={[styles.brandIconWrap, { backgroundColor: colors.primary + '18', borderColor: colors.primary + '30' }]}>
-              <Zap size={16} color={colors.primary} fill={colors.primary} />
-            </View>
+            <Image
+              source={require('@/assets/images/icon.png')}
+              style={styles.brandLogo}
+              resizeMode="contain"
+            />
             <View>
               <Text style={styles.brandName}>
-                <Text style={[styles.brandWord, { color: colors.foreground }]}>data</Text>
-                <Text style={[styles.brandAI, { color: colors.primary }]}>AI</Text>
+                <Text style={[styles.brandWord, { color: '#FFFFFF' }]}>Data </Text>
+                <Text style={[styles.brandAI, { color: '#4F8AFF' }]}>Ai</Text>
               </Text>
-              <Text style={[styles.brandDate, { color: colors.mutedForeground }]}>{today}</Text>
+              <Text style={[styles.brandTagline, { color: colors.mutedForeground }]}>
+                Scrape Data. Unlock Insights.
+              </Text>
             </View>
           </View>
 
@@ -136,22 +140,24 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 
   brandBlock: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  brandIconWrap: {
-    width: 36, height: 36, borderRadius: 10, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  brandName: { lineHeight: 26 },
+  brandLogo: { width: 42, height: 42, borderRadius: 12 },
+  brandName: { lineHeight: 28 },
   brandWord: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 24,
+    fontSize: 22,
     letterSpacing: -0.3,
   },
   brandAI: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 24,
-    letterSpacing: 1.5,
+    fontSize: 22,
+    letterSpacing: 1,
   },
-  brandDate: { fontFamily: 'Inter_400Regular', fontSize: 12, marginTop: 1 },
+  brandTagline: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    marginTop: 1,
+    letterSpacing: 0.3,
+  },
 
   searchFab: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   scroll: { paddingHorizontal: 16 },
