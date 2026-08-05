@@ -1,31 +1,81 @@
 import type { SearchResult } from '@/types/lead';
 import { useSettingsStore } from '@/store/settingsStore';
 
-function getBaseUrl(): string {
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (!domain) return '';
-  return `https://${domain}`;
+// ─── Direct Google Places API (New) calls ────────────────────────────────────
+// No backend proxy: every user brings their own Google Maps API key (set in
+// Settings), so there's no shared server secret to protect and nothing for a
+// backend to guard. Restrict your key in Google Cloud Console — Android apps
+// by package name + SHA-1, iOS apps by bundle ID, web by HTTP referrer — so
+// it can't be reused by anyone else even though it ships inside the app.
+const PLACES_BASE = 'https://places.googleapis.com/v1';
+
+const SEARCH_FIELD_MASK =
+  'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.location,places.internationalPhoneNumber,places.websiteUri';
+
+const DETAILS_FIELD_MASK =
+  'displayName,formattedAddress,rating,userRatingCount,internationalPhoneNumber,nationalPhoneNumber,websiteUri';
+
+interface GooglePlace {
+  id: string;
+  displayName?: { text?: string };
+  formattedAddress?: string;
+  rating?: number;
+  userRatingCount?: number;
+  location?: { latitude?: number; longitude?: number };
+  internationalPhoneNumber?: string;
+  websiteUri?: string;
 }
 
-function getHeaders(): Record<string, string> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const userKey = useSettingsStore.getState().googleApiKey;
-  if (userKey) headers['x-google-api-key'] = userKey;
-  return headers;
+interface GoogleApiError {
+  error?: { message?: string; status?: string };
+}
+
+function getStoredApiKey(): string {
+  return useSettingsStore.getState().googleApiKey.trim();
 }
 
 export async function searchPlaces(city: string, category: string): Promise<SearchResult[]> {
-  const base = getBaseUrl();
-  const url = `${base}/api/places/search?city=${encodeURIComponent(city)}&category=${encodeURIComponent(category)}`;
-
-  const res = await fetch(url, { headers: getHeaders() });
-  const data = await res.json() as { results?: SearchResult[]; error?: string };
-
-  if (!res.ok) {
-    throw new Error(data.error || `Request failed (${res.status})`);
+  const apiKey = getStoredApiKey();
+  if (!apiKey) {
+    throw new Error('No API key configured. Add your Google Maps API key in the Settings tab.');
   }
 
-  return data.results || [];
+  let res: Response;
+  try {
+    res = await fetch(`${PLACES_BASE}/places:searchText`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': SEARCH_FIELD_MASK,
+      },
+      body: JSON.stringify({
+        textQuery: `${category} in ${city}, India`,
+        languageCode: 'en',
+        maxResultCount: 20,
+      }),
+    });
+  } catch {
+    throw new Error('Network error — check your connection');
+  }
+
+  const data = await res.json() as GoogleApiError & { places?: GooglePlace[] };
+
+  if (!res.ok || data.error) {
+    throw new Error(`API key error: ${data.error?.message ?? 'unknown'}`);
+  }
+
+  return (data.places ?? []).map(p => ({
+    placeId: p.id,
+    name: p.displayName?.text ?? '',
+    address: p.formattedAddress ?? '',
+    phone: p.internationalPhoneNumber ?? '',
+    website: p.websiteUri ?? '',
+    rating: p.rating ?? 0,
+    totalRatings: p.userRatingCount ?? 0,
+    lat: p.location?.latitude,
+    lng: p.location?.longitude,
+  }));
 }
 
 export interface PlaceDetailsRefresh {
@@ -37,38 +87,64 @@ export interface PlaceDetailsRefresh {
   website: string;
 }
 
+const EMPTY_DETAILS: PlaceDetailsRefresh = { name: '', address: '', rating: 0, totalRatings: 0, phone: '', website: '' };
+
 export async function getPlaceDetails(placeId: string): Promise<PlaceDetailsRefresh> {
-  const base = getBaseUrl();
-  const url = `${base}/api/places/details/${encodeURIComponent(placeId)}`;
-  const empty: PlaceDetailsRefresh = { name: '', address: '', rating: 0, totalRatings: 0, phone: '', website: '' };
+  const apiKey = getStoredApiKey();
+  if (!apiKey) return EMPTY_DETAILS;
 
   try {
-    const res = await fetch(url, { headers: getHeaders() });
-    if (!res.ok) return empty;
-    const data = await res.json() as Partial<PlaceDetailsRefresh>;
+    const res = await fetch(`${PLACES_BASE}/places/${encodeURIComponent(placeId)}`, {
+      headers: {
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': DETAILS_FIELD_MASK,
+      },
+    });
+    if (!res.ok) return EMPTY_DETAILS;
+
+    const data = await res.json() as GoogleApiError & {
+      displayName?: { text?: string };
+      formattedAddress?: string;
+      rating?: number;
+      userRatingCount?: number;
+      internationalPhoneNumber?: string;
+      nationalPhoneNumber?: string;
+      websiteUri?: string;
+    };
+    if (data.error) return EMPTY_DETAILS;
+
     return {
-      name: data.name || '',
-      address: data.address || '',
-      rating: data.rating || 0,
-      totalRatings: data.totalRatings || 0,
-      phone: data.phone || '',
-      website: data.website || '',
+      name: data.displayName?.text ?? '',
+      address: data.formattedAddress ?? '',
+      rating: data.rating ?? 0,
+      totalRatings: data.userRatingCount ?? 0,
+      phone: data.internationalPhoneNumber ?? data.nationalPhoneNumber ?? '',
+      website: data.websiteUri ?? '',
     };
   } catch {
-    return empty;
+    return EMPTY_DETAILS;
   }
 }
 
 export async function testApiKey(apiKey: string): Promise<{ ok: boolean; message: string }> {
-  const base = getBaseUrl();
-  const url = `${base}/api/places/search?city=Mumbai&category=Restaurant`;
+  const key = apiKey.trim();
+  if (!key) return { ok: false, message: 'Enter an API key first' };
+
   try {
-    const res = await fetch(url, {
-      headers: { 'Content-Type': 'application/json', 'x-google-api-key': apiKey },
+    const res = await fetch(`${PLACES_BASE}/places:searchText`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': key,
+        'X-Goog-FieldMask': 'places.id',
+      },
+      body: JSON.stringify({ textQuery: 'Restaurant in Mumbai, India', languageCode: 'en', maxResultCount: 5 }),
     });
-    const data = await res.json() as { results?: unknown[]; error?: string };
-    if (!res.ok) return { ok: false, message: data.error || 'API key invalid' };
-    return { ok: true, message: `Connected! Found ${data.results?.length ?? 0} results` };
+    const data = await res.json() as GoogleApiError & { places?: unknown[] };
+    if (!res.ok || data.error) {
+      return { ok: false, message: data.error?.message || 'API key invalid' };
+    }
+    return { ok: true, message: `Connected! Found ${data.places?.length ?? 0} results` };
   } catch {
     return { ok: false, message: 'Network error — check your connection' };
   }

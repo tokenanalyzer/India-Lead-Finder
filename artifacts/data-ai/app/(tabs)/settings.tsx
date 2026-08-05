@@ -48,16 +48,13 @@ export default function SettingsScreen() {
   };
 
   const handleClear = () => {
-    Alert.alert('Clear API Key', 'Remove your custom API key? The server key will be used instead.', [
+    Alert.alert('Clear API Key', "Remove your API key? You won't be able to search until you add one again.", [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Clear', style: 'destructive', onPress: async () => { await clearGoogleApiKey(); setInputKey(''); setTestState('idle'); } },
     ]);
   };
 
-  const serverHasKey = !googleApiKey;
-  const maskedKey = googleApiKey
-    ? (showKey ? googleApiKey : `${googleApiKey.slice(0, 8)}${'●'.repeat(Math.max(0, googleApiKey.length - 12))}${googleApiKey.slice(-4)}`)
-    : '';
+  const hasKey = !!googleApiKey;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -83,19 +80,19 @@ export default function SettingsScreen() {
             <Text style={[styles.cardTitle, { color: colors.foreground }]}>API Key</Text>
             <View style={[
               styles.statusBadge,
-              { backgroundColor: serverHasKey ? '#22C55E20' : '#4F8AFF20' },
+              { backgroundColor: hasKey ? '#22C55E20' : '#EF444420' },
             ]}>
-              <View style={[styles.statusDot, { backgroundColor: serverHasKey ? '#22C55E' : '#4F8AFF' }]} />
-              <Text style={[styles.statusText, { color: serverHasKey ? '#22C55E' : '#4F8AFF' }]}>
-                {serverHasKey ? 'Server Key Active' : 'Your Key Active'}
+              <View style={[styles.statusDot, { backgroundColor: hasKey ? '#22C55E' : '#EF4444' }]} />
+              <Text style={[styles.statusText, { color: hasKey ? '#22C55E' : '#EF4444' }]}>
+                {hasKey ? 'Key Active' : 'No Key Set'}
               </Text>
             </View>
           </View>
 
           <Text style={[styles.cardDesc, { color: colors.mutedForeground }]}>
-            {serverHasKey
-              ? 'Using the server-configured key. You can override it with your own.'
-              : 'Using your personal API key. It takes priority over the server key.'}
+            {hasKey
+              ? 'Using your Google Maps API key to search directly from this device.'
+              : 'Add your own Google Maps API key to search — this app has no shared server key, so search is disabled until you add one.'}
           </Text>
 
           {/* Input */}
@@ -172,7 +169,8 @@ export default function SettingsScreen() {
             2. Create a project (or select existing){'\n'}
             3. Enable <Text style={{ color: colors.primary }}>Places API</Text>{'\n'}
             4. Create an API Key under Credentials{'\n'}
-            5. Paste it above and tap Save
+            5. Restrict it to this app (Android: package name + SHA-1) so it can't be reused elsewhere{'\n'}
+            6. Paste it above and tap Save
           </Text>
           <TouchableOpacity
             style={[styles.linkBtn, { borderColor: colors.border }]}
@@ -206,6 +204,10 @@ export default function SettingsScreen() {
           <View style={styles.aboutRow}>
             <Text style={[styles.aboutKey, { color: colors.mutedForeground }]}>Export</Text>
             <Text style={[styles.aboutVal, { color: colors.foreground }]}>CSV · JSON</Text>
+          </View>
+          <View style={styles.aboutRow}>
+            <Text style={[styles.aboutKey, { color: colors.mutedForeground }]}>Search</Text>
+            <Text style={[styles.aboutVal, { color: colors.foreground }]}>Direct to Google (no backend)</Text>
           </View>
         </View>
       </ScrollView>
