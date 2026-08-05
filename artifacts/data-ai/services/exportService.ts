@@ -22,6 +22,7 @@ function leadsToCSV(leads: Lead[]): string {
     Notes: l.notes,
     Tags: l.tags.join('; '),
     'Saved On': l.savedAt,
+    'Last Refreshed': l.dataFetchedAt || '',
     'Last Contacted': l.contactLog && l.contactLog.length > 0
       ? `${l.contactLog[l.contactLog.length - 1].type} @ ${l.contactLog[l.contactLog.length - 1].at}`
       : '',

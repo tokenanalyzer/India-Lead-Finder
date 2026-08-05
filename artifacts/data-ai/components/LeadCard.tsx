@@ -3,12 +3,12 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Platform, Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MapPin, Star, Copy, Check, ChevronRight, Phone, MessageCircle } from 'lucide-react-native';
+import { MapPin, Star, Copy, Check, ChevronRight, Phone, MessageCircle, RefreshCw } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useColors } from '@/hooks/useColors';
 import { StatusBadge } from './StatusBadge';
 import type { Lead } from '@/types/lead';
-import { timeAgo } from '@/types/lead';
+import { timeAgo, isLeadDataStale } from '@/types/lead';
 
 interface Props {
   lead: Lead;
@@ -59,6 +59,9 @@ export function LeadCard({ lead }: Props) {
             <View style={styles.topRight}>
               {copiedField ? (
                 <Check size={14} color="#22C55E" />
+              ) : null}
+              {isLeadDataStale(lead.dataFetchedAt) ? (
+                <RefreshCw size={11} color={colors.mutedForeground} />
               ) : null}
               <StatusBadge status={lead.status} size="sm" />
             </View>

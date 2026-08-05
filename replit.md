@@ -35,6 +35,7 @@ Single-user Android/Expo app for Indian freelance developers to find business le
 
 - **API key server-side only**: Google Maps key stays in Express backend (`GOOGLE_MAPS_API_KEY` secret), mobile calls `/api/places/search` — never exposes key in mobile bundle.
 - **Platform-specific DB**: `db/database.native.ts` uses expo-sqlite (better perf on device), `db/database.ts` uses AsyncStorage as web fallback. Metro picks the right one automatically via `.native.ts` extension.
+- **30-day Places data refresh**: Google's Places API terms cap how long name/address/rating/phone may be cached. Every `Lead` carries `dataFetchedAt`; `isLeadDataStale()` (types/lead.ts) flags anything older than 30 days. Opening a stale lead (`app/lead/[id].tsx`) silently re-fetches those fields from `/api/places/details/:placeId` and re-persists them, so saved leads never drift past the cache window. `placeId` itself has no such limit and is kept indefinitely. `LeadCard` shows a small refresh icon on stale leads, and CSV/JSON exports include a "Last Refreshed" column for transparency.
 - **Zustand over Context**: Simple, no boilerplate, works great with async SQLite init pattern.
 - **No OpenAPI codegen for Places routes**: Direct fetch calls used since Places is backend-only functionality, not a shared API contract.
 

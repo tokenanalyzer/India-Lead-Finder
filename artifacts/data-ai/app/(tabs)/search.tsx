@@ -76,6 +76,7 @@ export default function SearchScreen() {
       placeId: result.placeId,
       lat: result.lat,
       lng: result.lng,
+      dataFetchedAt: new Date().toISOString(),
     };
     try {
       await addLead(lead);

@@ -108,12 +108,20 @@ router.get("/details/:placeId", async (req: Request, res: Response) => {
     const response = await fetch(`${PLACES_BASE}/places/${encodeURIComponent(placeId)}`, {
       headers: {
         "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "internationalPhoneNumber,nationalPhoneNumber,websiteUri",
+        // Full refresh fields — Google's Places ToS caps cached place content at
+        // 30 days, so this route is also used to re-sync name/address/rating,
+        // not just fetch phone/website for the first time.
+        "X-Goog-FieldMask":
+          "displayName,formattedAddress,rating,userRatingCount,internationalPhoneNumber,nationalPhoneNumber,websiteUri",
       },
     });
 
     const data = (await response.json()) as {
       error?: { message?: string };
+      displayName?: { text?: string };
+      formattedAddress?: string;
+      rating?: number;
+      userRatingCount?: number;
       internationalPhoneNumber?: string;
       nationalPhoneNumber?: string;
       websiteUri?: string;
@@ -125,6 +133,10 @@ router.get("/details/:placeId", async (req: Request, res: Response) => {
     }
 
     res.json({
+      name: data.displayName?.text ?? "",
+      address: data.formattedAddress ?? "",
+      rating: data.rating ?? 0,
+      totalRatings: data.userRatingCount ?? 0,
       phone: data.internationalPhoneNumber ?? data.nationalPhoneNumber ?? "",
       website: data.websiteUri ?? "",
     });

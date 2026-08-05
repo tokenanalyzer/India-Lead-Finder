@@ -28,17 +28,34 @@ export async function searchPlaces(city: string, category: string): Promise<Sear
   return data.results || [];
 }
 
-export async function getPlaceDetails(placeId: string): Promise<{ phone: string; website: string }> {
+export interface PlaceDetailsRefresh {
+  name: string;
+  address: string;
+  rating: number;
+  totalRatings: number;
+  phone: string;
+  website: string;
+}
+
+export async function getPlaceDetails(placeId: string): Promise<PlaceDetailsRefresh> {
   const base = getBaseUrl();
   const url = `${base}/api/places/details/${encodeURIComponent(placeId)}`;
+  const empty: PlaceDetailsRefresh = { name: '', address: '', rating: 0, totalRatings: 0, phone: '', website: '' };
 
   try {
     const res = await fetch(url, { headers: getHeaders() });
-    if (!res.ok) return { phone: '', website: '' };
-    const data = await res.json() as { phone?: string; website?: string };
-    return { phone: data.phone || '', website: data.website || '' };
+    if (!res.ok) return empty;
+    const data = await res.json() as Partial<PlaceDetailsRefresh>;
+    return {
+      name: data.name || '',
+      address: data.address || '',
+      rating: data.rating || 0,
+      totalRatings: data.totalRatings || 0,
+      phone: data.phone || '',
+      website: data.website || '',
+    };
   } catch {
-    return { phone: '', website: '' };
+    return empty;
   }
 }
 

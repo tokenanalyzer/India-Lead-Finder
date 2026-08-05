@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   TextInput, Alert, ActivityIndicator, Linking, Platform, Modal,
@@ -15,7 +15,7 @@ import { useColors } from '@/hooks/useColors';
 import { useLeadsStore } from '@/store/leadsStore';
 import { getPlaceDetails } from '@/services/googleMaps';
 import { StatusBadge } from '@/components/StatusBadge';
-import { STATUS_COLORS, LEAD_STATUSES, timeAgo } from '@/types/lead';
+import { STATUS_COLORS, LEAD_STATUSES, timeAgo, isLeadDataStale } from '@/types/lead';
 import type { LeadStatus } from '@/types/lead';
 
 function CopyBtn({ text }: { text: string }) {
@@ -56,7 +56,9 @@ export default function LeadDetailScreen() {
   const [newTag, setNewTag] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
+  const [isRefreshingStale, setIsRefreshingStale] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const autoRefreshedIds = useRef(new Set<string>());
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -93,20 +95,47 @@ export default function LeadDetailScreen() {
     );
   }, [lead]);
 
-  const handleFetchDetails = useCallback(async () => {
+  // Google's Places ToS caps how long name/address/rating may be cached — this
+  // pulls a fresh copy from the API and writes it straight to storage so the
+  // saved lead never drifts more than ~30 days stale. `silent` skips the
+  // haptics/alerts used for the manual "Details" button tap.
+  const refreshFromGoogle = useCallback(async (silent: boolean) => {
     if (!lead?.placeId) return;
-    setIsFetching(true);
+    silent ? setIsRefreshingStale(true) : setIsFetching(true);
     try {
       const details = await getPlaceDetails(lead.placeId);
-      if (details.phone) setPhone(details.phone);
-      if (details.website) setWebsite(details.website);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const nextPhone = details.phone || phone;
+      const nextWebsite = details.website || website;
+      setPhone(nextPhone);
+      setWebsite(nextWebsite);
+      await updateLead({
+        ...lead,
+        name: details.name || lead.name,
+        address: details.address || lead.address,
+        rating: details.rating,
+        totalRatings: details.totalRatings,
+        phone: nextPhone,
+        website: nextWebsite,
+        dataFetchedAt: new Date().toISOString(),
+      });
+      if (!silent) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
-      Alert.alert('Error', 'Failed to fetch contact details.');
+      if (!silent) Alert.alert('Error', 'Failed to fetch contact details.');
     } finally {
-      setIsFetching(false);
+      silent ? setIsRefreshingStale(false) : setIsFetching(false);
     }
-  }, [lead?.placeId]);
+  }, [lead, phone, website, updateLead]);
+
+  const handleFetchDetails = useCallback(() => refreshFromGoogle(false), [refreshFromGoogle]);
+
+  useEffect(() => {
+    if (!lead || autoRefreshedIds.current.has(lead.id)) return;
+    if (!isLeadDataStale(lead.dataFetchedAt)) return;
+    autoRefreshedIds.current.add(lead.id);
+    refreshFromGoogle(true);
+    // Only re-check when navigating to a different lead, not on every store update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lead?.id]);
 
   const handleCall = useCallback(async () => {
     if (!phone) { Alert.alert('No Phone', 'No phone number available. Tap "Get Details" to fetch.'); return; }
@@ -191,6 +220,14 @@ export default function LeadDetailScreen() {
               <CopyBtn text={lead.address} />
             </View>
           ) : null}
+          {isRefreshingStale && (
+            <View style={styles.refreshRow}>
+              <ActivityIndicator size="small" color={colors.mutedForeground} />
+              <Text style={[styles.refreshText, { color: colors.mutedForeground }]}>
+                Refreshing latest info from Google...
+              </Text>
+            </View>
+          )}
           {lead.rating > 0 && (
             <Text style={[styles.bizRating, { color: '#F59E0B' }]}>
               ★ {lead.rating.toFixed(1)}  ({lead.totalRatings} reviews)
@@ -227,7 +264,7 @@ export default function LeadDetailScreen() {
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
             onPress={handleFetchDetails}
-            disabled={isFetching}
+            disabled={isFetching || isRefreshingStale}
             activeOpacity={0.8}
           >
             {isFetching
@@ -453,6 +490,8 @@ const styles = StyleSheet.create({
   bizMeta: { fontFamily: 'Inter_400Regular', fontSize: 13, marginTop: 2 },
   bizAddr: { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 18, flex: 1 },
   bizRating: { fontFamily: 'Inter_500Medium', fontSize: 13, marginTop: 4 },
+  refreshRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  refreshText: { fontFamily: 'Inter_400Regular', fontSize: 12 },
 
   actionRow: { flexDirection: 'row', gap: 10 },
   actionBtn: {

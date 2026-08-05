@@ -25,6 +25,16 @@ export interface Lead {
   lat?: number;
   lng?: number;
   contactLog?: ContactEntry[];
+  /** ISO timestamp of the last time name/address/phone/rating were pulled live from Places API. */
+  dataFetchedAt?: string;
+}
+
+/** Google's Places API terms allow caching most place fields for at most 30 days. */
+const PLACES_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+export function isLeadDataStale(dataFetchedAt: string | undefined): boolean {
+  if (!dataFetchedAt) return true;
+  return Date.now() - new Date(dataFetchedAt).getTime() > PLACES_CACHE_MAX_AGE_MS;
 }
 
 export interface SearchResult {
