@@ -1,103 +1,115 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Image } from 'react-native';
+import {
+  View, Text, StyleSheet, Animated, ImageBackground, Dimensions,
+} from 'react-native';
 
 interface Props {
   onDone: () => void;
 }
 
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 export function AppSplash({ onDone }: Props) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.88)).current;
-  const taglineFade = useRef(new Animated.Value(0)).current;
+  const textFade = useRef(new Animated.Value(0)).current;
+  const screenFade = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    // Fade in background first, then text
     Animated.sequence([
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1, duration: 700, useNativeDriver: false,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1, duration: 700, useNativeDriver: false,
-        }),
-      ]),
-      Animated.timing(taglineFade, {
-        toValue: 1, duration: 400, delay: 50, useNativeDriver: false,
+      Animated.timing(fadeAnim, {
+        toValue: 1, duration: 600, useNativeDriver: false,
+      }),
+      Animated.timing(textFade, {
+        toValue: 1, duration: 500, delay: 200, useNativeDriver: false,
       }),
     ]).start();
 
+    // Fade out entire screen after 2.8s
     const timer = setTimeout(() => {
-      Animated.timing(fadeAnim, {
+      Animated.timing(screenFade, {
         toValue: 0, duration: 400, useNativeDriver: false,
       }).start(() => onDone());
-    }, 2600);
+    }, 2800);
 
     return () => clearTimeout(timer);
   }, []);
 
   return (
-    <View style={styles.container}>
-      <Animated.View
-        style={[
-          styles.content,
-          {
-            opacity: fadeAnim,
-            transform: [{ scale: scaleAnim }],
-          },
-        ]}
+    <Animated.View style={[styles.wrapper, { opacity: screenFade }]}>
+      <ImageBackground
+        source={require('@/assets/images/splash-bg.png')}
+        style={styles.bg}
+        resizeMode="cover"
       >
-        <Image
-          source={require('@/assets/images/icon.png')}
-          style={styles.icon}
-          resizeMode="contain"
-        />
-        <Text style={styles.title}>
-          <Text style={styles.titleData}>Data </Text>
-          <Text style={styles.titleAi}>Ai</Text>
-        </Text>
-      </Animated.View>
-      <Animated.Text style={[styles.tagline, { opacity: taglineFade }]}>
-        Scrape Data. Unlock Insights.
-      </Animated.Text>
-    </View>
+        {/* Dark overlay to deepen the navy */}
+        <View style={styles.overlay} />
+
+        {/* Bottom text section */}
+        <Animated.View style={[styles.textSection, { opacity: textFade }]}>
+          <Text style={styles.title}>
+            <Text style={styles.titleData}>Data </Text>
+            <Text style={styles.titleAi}>Ai</Text>
+          </Text>
+          <Text style={styles.tagline}>
+            <Text style={styles.taglineNormal}>Scrape </Text>
+            <Text style={styles.taglineHighlight}>Data</Text>
+            <Text style={styles.taglineNormal}>. Unlock </Text>
+            <Text style={styles.taglineHighlight}>Insights</Text>
+            <Text style={styles.taglineNormal}>.</Text>
+          </Text>
+        </Animated.View>
+      </ImageBackground>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     flex: 1,
     backgroundColor: '#050A2B',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 18,
   },
-  content: {
+  bg: {
+    flex: 1,
+    width: '100%',
+    height: SCREEN_HEIGHT,
     alignItems: 'center',
-    gap: 22,
+    justifyContent: 'flex-end',
   },
-  icon: {
-    width: 110,
-    height: 110,
-    borderRadius: 26,
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(5, 10, 43, 0.35)',
+  },
+  textSection: {
+    alignItems: 'center',
+    paddingBottom: 90,
+    gap: 10,
   },
   title: {
-    lineHeight: 56,
+    lineHeight: 62,
   },
   titleData: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 48,
+    fontSize: 52,
     color: '#FFFFFF',
     letterSpacing: -0.5,
   },
   titleAi: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 48,
-    color: '#4F8AFF',
-    letterSpacing: 1.5,
+    fontSize: 52,
+    color: '#38BDF8',
+    letterSpacing: 1,
   },
   tagline: {
+    fontSize: 15,
+    letterSpacing: 0.3,
+  },
+  taglineNormal: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 14,
-    color: '#6B82A8',
-    letterSpacing: 0.8,
+    color: '#CBD5E1',
+  },
+  taglineHighlight: {
+    fontFamily: 'Inter_600SemiBold',
+    color: '#38BDF8',
   },
 });

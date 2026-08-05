@@ -15,6 +15,6 @@ import colors from "@/constants/colors";
  * device's appearance setting.
  */
 export function useColors() {
-  // Always use dark palette — Data AI is a professional dark-theme app
-  return { ...colors.dark, radius: colors.radius };
+  // Light theme — white background with blue accents
+  return { ...colors.light, radius: colors.radius };
 }
