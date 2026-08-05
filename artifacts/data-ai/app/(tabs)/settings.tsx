@@ -24,7 +24,7 @@ export default function SettingsScreen() {
 
   useEffect(() => { setInputKey(googleApiKey); }, [googleApiKey]);
 
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? 16 : insets.top;
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -99,7 +99,7 @@ export default function SettingsScreen() {
           </Text>
 
           {/* Input */}
-          <View style={[styles.inputRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+          <View style={[styles.inputRow, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1.5 }]}>
             <TextInput
               style={[styles.input, { color: colors.foreground }]}
               value={showKey ? inputKey : (inputKey ? inputKey.slice(0, 8) + '●'.repeat(Math.max(0, inputKey.length - 12)) + inputKey.slice(-4) : '')}
@@ -188,8 +188,8 @@ export default function SettingsScreen() {
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>ABOUT</Text>
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.aboutTitle, { color: colors.foreground }]}>
-            <Text style={{ color: '#FFFFFF' }}>Data </Text>
-            <Text style={{ color: '#4F8AFF' }}>Ai</Text>
+            <Text style={{ color: colors.foreground }}>Data </Text>
+            <Text style={{ color: colors.primary }}>Ai</Text>
           </Text>
           <Text style={[styles.aboutTagline, { color: colors.mutedForeground }]}>
             Scrape Data. Unlock Insights.

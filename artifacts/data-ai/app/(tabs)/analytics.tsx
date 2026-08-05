@@ -66,7 +66,7 @@ export default function AnalyticsScreen() {
     return { total, won, lost, active, convRate, statusCounts, maxStatus, topCities, maxCity, topCategories, maxCat };
   }, [leads]);
 
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? 16 : insets.top;
 
   if (leads.length === 0) {
     return (

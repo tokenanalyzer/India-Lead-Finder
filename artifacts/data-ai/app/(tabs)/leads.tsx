@@ -55,7 +55,7 @@ export default function LeadsScreen() {
     }
   }, [filtered]);
 
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? 16 : insets.top;
   const filters: Filter[] = ['All', ...LEAD_STATUSES];
 
   return (

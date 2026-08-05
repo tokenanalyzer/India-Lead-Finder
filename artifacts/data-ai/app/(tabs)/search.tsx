@@ -101,7 +101,7 @@ export default function SearchScreen() {
     return list.filter(i => i.toLowerCase().includes(pickerQuery.toLowerCase()));
   }, [picker, pickerQuery]);
 
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? 16 : insets.top;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

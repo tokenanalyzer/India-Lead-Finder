@@ -34,7 +34,7 @@ export default function DashboardScreen() {
   const recent = leads.slice(0, 5);
 
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' });
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? 16 : insets.top;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -49,8 +49,8 @@ export default function DashboardScreen() {
             />
             <View>
               <Text style={styles.brandName}>
-                <Text style={[styles.brandWord, { color: '#FFFFFF' }]}>Data </Text>
-                <Text style={[styles.brandAI, { color: '#4F8AFF' }]}>Ai</Text>
+                <Text style={[styles.brandWord, { color: colors.foreground }]}>Data </Text>
+                <Text style={[styles.brandAI, { color: colors.primary }]}>Ai</Text>
               </Text>
               <Text style={[styles.brandTagline, { color: colors.mutedForeground }]}>
                 Scrape Data. Unlock Insights.
