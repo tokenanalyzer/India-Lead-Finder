@@ -68,7 +68,7 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: Platform.OS === 'web' ? 34 : 100 }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 100 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

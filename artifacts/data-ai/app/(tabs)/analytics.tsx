@@ -92,7 +92,7 @@ export default function AnalyticsScreen() {
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: Platform.OS === 'web' ? 34 : 100 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 100 }]} showsVerticalScrollIndicator={false}>
         <View style={styles.statsGrid}>
           <StatCard label="Total Leads" value={String(stats.total)} icon={<Users size={20} color={colors.primary} />} color={colors.primary} />
           <StatCard label="Won" value={String(stats.won)} icon={<Award size={20} color="#22C55E" />} color="#22C55E" />
