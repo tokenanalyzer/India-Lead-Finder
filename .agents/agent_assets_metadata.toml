@@ -23,3 +23,10 @@ id = "aIx9I3zb38hfBvCoYk6dW"
 uri = "file://artifacts/data-ai/assets/images/icon.png"
 type = "image"
 title = "Data Ai - App Icon (D Monogram)"
+
+[[outputs]]
+id = "qmfEE9mQGsQDcGD687wYu"
+uri = "file://data-ai-project.zip"
+type = "unspecified"
+title = "Data AI Project — Full Source"
+description = "Complete project zip (node_modules, .git, dist, .expo excluded). Ready to import anywhere."
