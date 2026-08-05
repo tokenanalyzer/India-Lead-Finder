@@ -6,6 +6,11 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// Trust the first hop proxy (Replit's reverse proxy) so req.ip reflects the
+// real client address instead of the proxy's — required for per-IP rate
+// limiting to actually work.
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,

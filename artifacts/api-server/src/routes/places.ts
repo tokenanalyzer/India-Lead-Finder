@@ -1,7 +1,13 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
+import { placesRateLimit } from "../middlewares/rateLimit";
 
 const router = Router();
+
+// Every route below calls out to the Google Places API using either the
+// caller-supplied key or the server's own secret — rate-limit per IP so a
+// single client can't silently burn through the Google Cloud billing quota.
+router.use(placesRateLimit);
 
 // ─── New Places API (v1) base URL ────────────────────────────────────────────
 const PLACES_BASE = "https://places.googleapis.com/v1";
