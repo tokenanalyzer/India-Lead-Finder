@@ -3,6 +3,9 @@ import type { Request, Response } from "express";
 
 const router = Router();
 
+// ─── New Places API (v1) base URL ────────────────────────────────────────────
+const PLACES_BASE = "https://places.googleapis.com/v1";
+
 function resolveApiKey(req: Request): string | undefined {
   // User-supplied key from the app's Settings screen takes priority
   const raw = req.headers["x-google-api-key"];
@@ -11,6 +14,7 @@ function resolveApiKey(req: Request): string | undefined {
   return process.env.GOOGLE_MAPS_API_KEY;
 }
 
+// ─── Text Search (New API) ────────────────────────────────────────────────────
 router.get("/search", async (req: Request, res: Response) => {
   const { city, category } = req.query as { city?: string; category?: string };
   const apiKey = resolveApiKey(req);
@@ -29,47 +33,62 @@ router.get("/search", async (req: Request, res: Response) => {
   }
 
   try {
-    const query = encodeURIComponent(`${category} in ${city}, India`);
-    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${query}&key=${apiKey}&language=en`;
+    const response = await fetch(`${PLACES_BASE}/places:searchText`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        // Fields we need — only request what we display
+        "X-Goog-FieldMask":
+          "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.location,places.internationalPhoneNumber,places.websiteUri",
+      },
+      body: JSON.stringify({
+        textQuery: `${category} in ${city}, India`,
+        languageCode: "en",
+        maxResultCount: 20,
+      }),
+    });
 
-    const response = await fetch(url);
     const data = (await response.json()) as {
-      status: string;
-      error_message?: string;
-      results?: Array<{
-        place_id: string;
-        name: string;
-        formatted_address?: string;
+      error?: { message?: string; status?: string };
+      places?: Array<{
+        id: string;
+        displayName?: { text?: string };
+        formattedAddress?: string;
         rating?: number;
-        user_ratings_total?: number;
-        geometry?: { location?: { lat?: number; lng?: number } };
+        userRatingCount?: number;
+        location?: { latitude?: number; longitude?: number };
+        internationalPhoneNumber?: string;
+        websiteUri?: string;
       }>;
     };
 
-    if (data.status === "REQUEST_DENIED") {
-      res.status(503).json({ error: `API key error: ${data.error_message ?? "unknown"}` });
+    if (data.error) {
+      req.log.error({ err: data.error }, "Places API (New) error");
+      res.status(503).json({ error: `API key error: ${data.error.message ?? "unknown"}` });
       return;
     }
 
-    const results = (data.results ?? []).slice(0, 20).map((p) => ({
-      placeId: p.place_id,
-      name: p.name,
-      address: p.formatted_address ?? "",
-      phone: "",
-      website: "",
+    const results = (data.places ?? []).map((p) => ({
+      placeId: p.id,
+      name: p.displayName?.text ?? "",
+      address: p.formattedAddress ?? "",
+      phone: p.internationalPhoneNumber ?? "",
+      website: p.websiteUri ?? "",
       rating: p.rating ?? 0,
-      totalRatings: p.user_ratings_total ?? 0,
-      lat: p.geometry?.location?.lat,
-      lng: p.geometry?.location?.lng,
+      totalRatings: p.userRatingCount ?? 0,
+      lat: p.location?.latitude,
+      lng: p.location?.longitude,
     }));
 
-    res.json({ results, total: results.length, status: data.status });
+    res.json({ results, total: results.length });
   } catch (err) {
     req.log.error({ err }, "Places search failed");
     res.status(500).json({ error: "Failed to fetch places from Google Maps" });
   }
 });
 
+// ─── Place Details (New API) ──────────────────────────────────────────────────
 router.get("/details/:placeId", async (req: Request, res: Response) => {
   const placeId = req.params["placeId"] as string;
   const apiKey = resolveApiKey(req);
@@ -80,15 +99,28 @@ router.get("/details/:placeId", async (req: Request, res: Response) => {
   }
 
   try {
-    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=formatted_phone_number,website,international_phone_number&key=${apiKey}`;
-    const response = await fetch(url);
+    const response = await fetch(`${PLACES_BASE}/places/${encodeURIComponent(placeId)}`, {
+      headers: {
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": "internationalPhoneNumber,nationalPhoneNumber,websiteUri",
+      },
+    });
+
     const data = (await response.json()) as {
-      result?: { formatted_phone_number?: string; international_phone_number?: string; website?: string };
+      error?: { message?: string };
+      internationalPhoneNumber?: string;
+      nationalPhoneNumber?: string;
+      websiteUri?: string;
     };
 
+    if (data.error) {
+      res.status(503).json({ error: `API key error: ${data.error.message ?? "unknown"}` });
+      return;
+    }
+
     res.json({
-      phone: data.result?.formatted_phone_number ?? data.result?.international_phone_number ?? "",
-      website: data.result?.website ?? "",
+      phone: data.internationalPhoneNumber ?? data.nationalPhoneNumber ?? "",
+      website: data.websiteUri ?? "",
     });
   } catch (err) {
     req.log.error({ err }, "Place details fetch failed");
