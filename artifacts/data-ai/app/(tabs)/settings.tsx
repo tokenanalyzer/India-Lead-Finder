@@ -316,8 +316,8 @@ export default function SettingsScreen() {
 
       {/* ── Add/Edit template modal ── */}
       <Modal visible={templateModalOpen} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.templateModal, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setTemplateModalOpen(false)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.templateModal, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.templateModalHeader}>
               <Text style={[styles.cardTitle, { color: colors.foreground }]}>
                 {editingTemplate ? 'Edit Template' : 'New Template'}
@@ -371,14 +371,14 @@ export default function SettingsScreen() {
                 <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Save</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       {/* ── Category picker for template (reused compact list) ── */}
       <Modal visible={categoryPickerOpen} animationType="slide" transparent>
-        <View style={styles.pickerOverlay}>
-          <View style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
+        <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setCategoryPickerOpen(false)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
             <View style={styles.templateModalHeader}>
               <Text style={[styles.cardTitle, { color: colors.foreground }]}>Category</Text>
               <TouchableOpacity onPress={() => setCategoryPickerOpen(false)}>
@@ -408,8 +408,8 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );

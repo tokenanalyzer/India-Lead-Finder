@@ -137,8 +137,8 @@ export default function LeadsScreen() {
       )}
 
       <Modal visible={showExport} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowExport(false)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.modalSheet, { backgroundColor: colors.card }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>Export Leads</Text>
               <TouchableOpacity onPress={() => setShowExport(false)}>
@@ -184,8 +184,8 @@ export default function LeadsScreen() {
                 </Text>
               </View>
             </TouchableOpacity>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );

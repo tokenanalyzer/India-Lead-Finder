@@ -424,7 +424,7 @@ export default function SearchScreen() {
             <Text style={[styles.pickerText, { color: colors.foreground }]} numberOfLines={1}>
               Near {locationLabel || 'you'}
             </Text>
-            <TouchableOpacity onPress={clearLocation} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity onPress={clearLocation} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Clear location">
               <X size={16} color={colors.mutedForeground} />
             </TouchableOpacity>
           </View>
@@ -618,8 +618,8 @@ export default function SearchScreen() {
 
       {/* ── Save search modal ── */}
       <Modal visible={saveSearchModalOpen} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.saveSearchSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSaveSearchModalOpen(false)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.saveSearchSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.copySheetTitle, { color: colors.foreground }]}>Save This Search</Text>
             <TextInput
               style={[styles.saveSearchInput, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
@@ -643,8 +643,8 @@ export default function SearchScreen() {
                 <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Save</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       {/* ── Long-press copy modal ── */}
@@ -686,8 +686,8 @@ export default function SearchScreen() {
 
       {/* ── City / Category picker modal ── */}
       <Modal visible={picker !== null} animationType="slide" transparent>
-        <View style={styles.pickerOverlay}>
-          <View style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
+        <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setPicker(null)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
             <View style={styles.pickerHeader}>
               <Text style={[styles.pickerTitle, { color: colors.foreground }]}>
                 {picker === 'city' ? (bulkMode ? 'Select Cities' : 'Select City') : 'Select Category'}
@@ -739,8 +739,8 @@ export default function SearchScreen() {
                 );
               }}
             />
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );

@@ -438,8 +438,8 @@ export default function LeadDetailScreen() {
 
       {/* ── Status picker modal ── */}
       <Modal visible={showStatusPicker} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowStatusPicker(false)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.modalSheet, { backgroundColor: colors.card }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>CRM Status</Text>
               <TouchableOpacity onPress={() => setShowStatusPicker(false)}>
@@ -458,8 +458,8 @@ export default function LeadDetailScreen() {
                 {s === status && <Check size={18} color={STATUS_COLORS[s].bg} />}
               </TouchableOpacity>
             ))}
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
