@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList, Modal,
-  ActivityIndicator, TextInput, Alert, Platform, ScrollView,
+  ActivityIndicator, TextInput, Alert, Platform, ScrollView, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -104,9 +104,16 @@ export default function SearchScreen() {
   };
 
   async function getCurrentLocation(): Promise<{ coords: Coords; label: string }> {
-    const { status } = await Location.requestForegroundPermissionsAsync();
+    const servicesEnabled = await Location.hasServicesEnabledAsync();
+    if (!servicesEnabled) {
+      throw new Error('services-disabled');
+    }
+    const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      throw new Error('permission-denied');
+      // Android only shows the system permission dialog on the first ask (or while
+      // canAskAgain is still true). Once the user has denied it before, this call
+      // returns 'denied' immediately with no dialog — the only way forward is Settings.
+      throw new Error(canAskAgain ? 'permission-denied' : 'permission-blocked');
     }
     const pos = await Promise.race([
       Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
@@ -124,6 +131,33 @@ export default function SearchScreen() {
     return { coords: { latitude, longitude }, label };
   }
 
+  const showLocationError = (e: unknown) => {
+    const code = e instanceof Error ? e.message : '';
+    if (code === 'permission-blocked') {
+      Alert.alert(
+        'Location Permission Blocked',
+        'You previously denied location access, so Android won’t ask again automatically. Open Settings → Permissions → Location and allow it, or select a city manually.',
+        [
+          { text: 'Select City Instead', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ]
+      );
+    } else if (code === 'permission-denied') {
+      Alert.alert('Location Permission Needed', 'Allow location access to find businesses near you, or select a city manually.');
+    } else if (code === 'services-disabled') {
+      Alert.alert(
+        'Turn On Location',
+        'Your phone’s Location (GPS) is switched off. Turn it on in your phone settings, or select a city manually.',
+        [
+          { text: 'Select City Instead', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ]
+      );
+    } else {
+      Alert.alert('Location Error', 'Could not get your location. Make sure GPS has a clear signal, or select a city manually.');
+    }
+  };
+
   const handleUseMyLocation = async () => {
     setIsLocating(true);
     try {
@@ -134,11 +168,7 @@ export default function SearchScreen() {
       setBulkMode(false);
       setCity('');
     } catch (e) {
-      if (e instanceof Error && e.message === 'permission-denied') {
-        Alert.alert('Location Permission Needed', 'Allow location access to find businesses near you, or select a city manually.');
-      } else {
-        Alert.alert('Location Error', 'Could not get your location. Try selecting a city manually.');
-      }
+      showLocationError(e);
     } finally {
       setIsLocating(false);
     }
@@ -310,8 +340,8 @@ export default function SearchScreen() {
         setLocationLabel(label);
         setUseMyLocation(true);
         await runSearch({ category: saved.category, location: coords, locationLabel: label, savedSearch: saved });
-      } catch {
-        Alert.alert('Location Error', 'Could not get your location for this saved search.');
+      } catch (e) {
+        showLocationError(e);
       } finally {
         setIsLocating(false);
       }
