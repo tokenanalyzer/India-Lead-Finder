@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, ActivityIndicator, Linking, Alert,
+  TextInput, Platform, ActivityIndicator, Linking, Alert, Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Key, Eye, EyeOff, Trash2, Wifi, ExternalLink, CheckCircle, XCircle, Settings } from 'lucide-react-native';
+import {
+  Key, Eye, EyeOff, Trash2, Wifi, ExternalLink, CheckCircle, XCircle, Settings,
+  MessageSquare, Plus, Pencil, X, Check, ChevronDown,
+} from 'lucide-react-native';
 import { useColors } from '@/hooks/useColors';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useTemplatesStore } from '@/store/templatesStore';
 import { testApiKey } from '@/services/googleMaps';
+import { BUSINESS_CATEGORIES } from '@/types/lead';
+import type { MessageTemplate } from '@/types/lead';
 
 type TestState = 'idle' | 'testing' | 'ok' | 'fail';
 
@@ -15,12 +21,22 @@ export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { googleApiKey, setGoogleApiKey, clearGoogleApiKey } = useSettingsStore();
+  const templates = useTemplatesStore(s => s.templates);
+  const addTemplate = useTemplatesStore(s => s.addTemplate);
+  const updateTemplate = useTemplatesStore(s => s.updateTemplate);
+  const deleteTemplate = useTemplatesStore(s => s.deleteTemplate);
 
   const [inputKey, setInputKey] = useState(googleApiKey);
   const [showKey, setShowKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [testState, setTestState] = useState<TestState>('idle');
   const [testMsg, setTestMsg] = useState('');
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
+  const [templateName, setTemplateName] = useState('');
+  const [templateCategory, setTemplateCategory] = useState('');
+  const [templateBody, setTemplateBody] = useState('');
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
 
   useEffect(() => { setInputKey(googleApiKey); }, [googleApiKey]);
 
@@ -55,6 +71,48 @@ export default function SettingsScreen() {
   };
 
   const hasKey = !!googleApiKey;
+
+  const openAddTemplate = () => {
+    setEditingTemplate(null);
+    setTemplateName('');
+    setTemplateCategory('');
+    setTemplateBody('');
+    setTemplateModalOpen(true);
+  };
+
+  const openEditTemplate = (t: MessageTemplate) => {
+    setEditingTemplate(t);
+    setTemplateName(t.name);
+    setTemplateCategory(t.category);
+    setTemplateBody(t.body);
+    setTemplateModalOpen(true);
+  };
+
+  const handleSaveTemplate = async () => {
+    const name = templateName.trim();
+    const body = templateBody.trim();
+    if (!name || !body) {
+      Alert.alert('Missing Info', 'Give the template a name and a message body.');
+      return;
+    }
+    if (editingTemplate) {
+      await updateTemplate({ ...editingTemplate, name, category: templateCategory, body });
+    } else {
+      await addTemplate({ name, category: templateCategory, body });
+    }
+    setTemplateModalOpen(false);
+  };
+
+  const handleDeleteTemplate = (t: MessageTemplate) => {
+    if (t.id === 'default') {
+      Alert.alert('Can’t Delete', 'The default template is always kept as a fallback.');
+      return;
+    }
+    Alert.alert('Delete Template', `Remove "${t.name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteTemplate(t.id) },
+    ]);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -182,6 +240,50 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* ── Message Templates ── */}
+        <View style={styles.sectionLabelRow}>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>WHATSAPP TEMPLATES</Text>
+          <TouchableOpacity onPress={openAddTemplate} style={styles.addTemplateBtn} activeOpacity={0.7}>
+            <Plus size={14} color={colors.primary} />
+            <Text style={[styles.addTemplateBtnText, { color: colors.primary }]}>Add</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.cardDesc, { color: colors.mutedForeground }]}>
+            Sent when you tap WhatsApp on a lead. Use {'{{business}}'} to insert the business name.
+            Set a category to override the default for that category only.
+          </Text>
+          {templates.map((t, i) => (
+            <View
+              key={t.id}
+              style={[styles.templateRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
+            >
+              <View style={styles.templateInfo}>
+                <View style={styles.templateNameRow}>
+                  <MessageSquare size={13} color={colors.primary} />
+                  <Text style={[styles.templateName, { color: colors.foreground }]}>{t.name}</Text>
+                  <Text style={[styles.templateCategoryTag, { color: colors.mutedForeground }]}>
+                    {t.category || 'All categories'}
+                  </Text>
+                </View>
+                <Text style={[styles.templateBody, { color: colors.mutedForeground }]} numberOfLines={2}>
+                  {t.body}
+                </Text>
+              </View>
+              <View style={styles.templateActions}>
+                <TouchableOpacity onPress={() => openEditTemplate(t)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Pencil size={15} color={colors.mutedForeground} />
+                </TouchableOpacity>
+                {t.id !== 'default' && (
+                  <TouchableOpacity onPress={() => handleDeleteTemplate(t)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Trash2 size={15} color={colors.destructive} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+
         {/* ── About ── */}
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>ABOUT</Text>
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -211,6 +313,104 @@ export default function SettingsScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* ── Add/Edit template modal ── */}
+      <Modal visible={templateModalOpen} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.templateModal, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.templateModalHeader}>
+              <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+                {editingTemplate ? 'Edit Template' : 'New Template'}
+              </Text>
+              <TouchableOpacity onPress={() => setTemplateModalOpen(false)}>
+                <X size={20} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={[styles.templateInput, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+              value={templateName}
+              onChangeText={setTemplateName}
+              placeholder="Template name (e.g. Restaurant Pitch)"
+              placeholderTextColor={colors.mutedForeground}
+            />
+
+            <TouchableOpacity
+              style={[styles.templateInput, styles.categoryPickerBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+              onPress={() => setCategoryPickerOpen(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={{ color: templateCategory ? colors.foreground : colors.mutedForeground, fontFamily: 'Inter_400Regular', fontSize: 14 }}>
+                {templateCategory || 'All categories (default)'}
+              </Text>
+              <ChevronDown size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
+
+            <TextInput
+              style={[styles.templateInput, styles.templateBodyInput, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+              value={templateBody}
+              onChangeText={setTemplateBody}
+              placeholder='Hello, I came across your business "{{business}}" ...'
+              placeholderTextColor={colors.mutedForeground}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+
+            <View style={styles.saveSearchBtnRow}>
+              <TouchableOpacity
+                style={[styles.saveSearchActionBtn, { backgroundColor: colors.muted }]}
+                onPress={() => setTemplateModalOpen(false)}
+              >
+                <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveSearchActionBtn, { backgroundColor: colors.primary }]}
+                onPress={handleSaveTemplate}
+              >
+                <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Category picker for template (reused compact list) ── */}
+      <Modal visible={categoryPickerOpen} animationType="slide" transparent>
+        <View style={styles.pickerOverlay}>
+          <View style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
+            <View style={styles.templateModalHeader}>
+              <Text style={[styles.cardTitle, { color: colors.foreground }]}>Category</Text>
+              <TouchableOpacity onPress={() => setCategoryPickerOpen(false)}>
+                <X size={20} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.categoryList}>
+              <TouchableOpacity
+                style={[styles.categoryItem, !templateCategory && { backgroundColor: colors.primary + '20' }]}
+                onPress={() => { setTemplateCategory(''); setCategoryPickerOpen(false); }}
+              >
+                <Text style={{ color: !templateCategory ? colors.primary : colors.foreground, fontFamily: 'Inter_400Regular', fontSize: 15 }}>
+                  All categories (default)
+                </Text>
+                {!templateCategory && <Check size={16} color={colors.primary} />}
+              </TouchableOpacity>
+              {BUSINESS_CATEGORIES.map(cat => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[styles.categoryItem, templateCategory === cat && { backgroundColor: colors.primary + '20' }]}
+                  onPress={() => { setTemplateCategory(cat); setCategoryPickerOpen(false); }}
+                >
+                  <Text style={{ color: templateCategory === cat ? colors.primary : colors.foreground, fontFamily: 'Inter_400Regular', fontSize: 15 }}>
+                    {cat}
+                  </Text>
+                  {templateCategory === cat && <Check size={16} color={colors.primary} />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -260,4 +460,29 @@ const styles = StyleSheet.create({
   aboutRow: { flexDirection: 'row', justifyContent: 'space-between' },
   aboutKey: { fontFamily: 'Inter_400Regular', fontSize: 13 },
   aboutVal: { fontFamily: 'Inter_500Medium', fontSize: 13 },
+
+  sectionLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
+  addTemplateBtn: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  addTemplateBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 12 },
+  templateRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingTop: 10 },
+  templateInfo: { flex: 1, gap: 3 },
+  templateNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  templateName: { fontFamily: 'Inter_600SemiBold', fontSize: 13 },
+  templateCategoryTag: { fontFamily: 'Inter_400Regular', fontSize: 11 },
+  templateBody: { fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 16 },
+  templateActions: { flexDirection: 'row', gap: 14, paddingTop: 2 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
+  templateModal: { width: '88%', maxWidth: 360, borderRadius: 16, borderWidth: 1, padding: 16, gap: 12 },
+  templateModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  templateInput: { borderRadius: 10, borderWidth: 1, padding: 12, fontFamily: 'Inter_400Regular', fontSize: 14 },
+  categoryPickerBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  templateBodyInput: { minHeight: 90 },
+  saveSearchBtnRow: { flexDirection: 'row', gap: 8 },
+  saveSearchActionBtn: { flex: 1, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
+
+  pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  pickerSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '75%', padding: 20, paddingBottom: 12 },
+  categoryList: { marginTop: 8 },
+  categoryItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 13 },
 });

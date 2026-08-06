@@ -17,6 +17,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppSplash } from "@/components/AppSplash";
 import { useLeadsStore } from "@/store/leadsStore";
 import { useSettingsStore } from "@/store/settingsStore";
+import { useSavedSearchesStore } from "@/store/savedSearchesStore";
+import { useTemplatesStore } from "@/store/templatesStore";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -25,11 +27,15 @@ const queryClient = new QueryClient();
 function AppInitializer({ children }: { children: React.ReactNode }) {
   const initialize = useLeadsStore((s) => s.initialize);
   const loadSettings = useSettingsStore((s) => s.load);
+  const loadSavedSearches = useSavedSearchesStore((s) => s.load);
+  const loadTemplates = useTemplatesStore((s) => s.load);
 
   useEffect(() => {
     initialize();
     loadSettings();
-  }, [initialize, loadSettings]);
+    loadSavedSearches();
+    loadTemplates();
+  }, [initialize, loadSettings, loadSavedSearches, loadTemplates]);
 
   return <>{children}</>;
 }

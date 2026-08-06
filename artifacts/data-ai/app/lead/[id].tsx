@@ -13,9 +13,10 @@ import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import { useColors } from '@/hooks/useColors';
 import { useLeadsStore } from '@/store/leadsStore';
+import { useTemplatesStore } from '@/store/templatesStore';
 import { getPlaceDetails } from '@/services/googleMaps';
 import { StatusBadge } from '@/components/StatusBadge';
-import { STATUS_COLORS, LEAD_STATUSES, timeAgo, isLeadDataStale } from '@/types/lead';
+import { STATUS_COLORS, LEAD_STATUSES, timeAgo, isLeadDataStale, renderMessageTemplate } from '@/types/lead';
 import type { LeadStatus } from '@/types/lead';
 
 function CopyBtn({ text }: { text: string }) {
@@ -47,6 +48,7 @@ export default function LeadDetailScreen() {
   const updateLead = useLeadsStore(s => s.updateLead);
   const deleteLead = useLeadsStore(s => s.deleteLead);
   const logContact = useLeadsStore(s => s.logContact);
+  const getTemplateForCategory = useTemplatesStore(s => s.getTemplateForCategory);
 
   const [status, setStatus] = useState<LeadStatus>(lead?.status ?? 'New');
   const [notes, setNotes] = useState(lead?.notes ?? '');
@@ -153,10 +155,11 @@ export default function LeadDetailScreen() {
     if (!phone) { Alert.alert('No Phone', 'No phone number available. Tap "Details" to fetch.'); return; }
     const digits = phone.replace(/\D/g, '').replace(/^0+/, '');
     const number = digits.startsWith('91') && digits.length === 12 ? digits : `91${digits}`;
-    const msg = encodeURIComponent(`Hello, I came across your business "${lead?.name}" and would like to connect.`);
+    const template = getTemplateForCategory(lead?.category ?? '');
+    const msg = encodeURIComponent(renderMessageTemplate(template.body, lead?.name ?? 'your business'));
     Linking.openURL(`https://wa.me/${number}?text=${msg}`);
     if (lead) await logContact(lead.id, 'whatsapp');
-  }, [phone, lead, logContact]);
+  }, [phone, lead, logContact, getTemplateForCategory]);
 
   const addTag = () => {
     const t = newTag.trim();
