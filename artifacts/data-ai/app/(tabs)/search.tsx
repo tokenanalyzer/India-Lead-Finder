@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, MapPin, Star, ChevronDown, Check, X, Copy } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
+import * as Location from 'expo-location';
 import { useColors } from '@/hooks/useColors';
 import { useLeadsStore } from '@/store/leadsStore';
 import { searchPlaces } from '@/services/googleMaps';
@@ -33,19 +34,62 @@ export default function SearchScreen() {
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [copyItem, setCopyItem] = useState<SearchResult | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [useMyLocation, setUseMyLocation] = useState(false);
+  const [locationCoords, setLocationCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationLabel, setLocationLabel] = useState('');
+  const [isLocating, setIsLocating] = useState(false);
 
   const savedPlaceIds = useMemo(() => new Set(leads.map(l => l.placeId)), [leads]);
 
+  const clearLocation = () => {
+    setUseMyLocation(false);
+    setLocationCoords(null);
+    setLocationLabel('');
+  };
+
+  const handleUseMyLocation = async () => {
+    setIsLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Location Permission Needed', 'Allow location access to find businesses near you, or select a city manually.');
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude, longitude } = pos.coords;
+
+      let label = 'your location';
+      try {
+        const places = await Location.reverseGeocodeAsync({ latitude, longitude });
+        const place = places[0];
+        if (place) label = place.city || place.subregion || place.district || place.region || label;
+      } catch {
+        // Reverse geocoding is best-effort — the coordinates still work for search either way.
+      }
+
+      setLocationCoords({ latitude, longitude });
+      setLocationLabel(label);
+      setUseMyLocation(true);
+      setCity('');
+    } catch {
+      Alert.alert('Location Error', 'Could not get your location. Try selecting a city manually.');
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
   const handleSearch = async () => {
-    if (!city) { Alert.alert('Select City', 'Please select a city first.'); return; }
+    if (!useMyLocation && !city) { Alert.alert('Select City', 'Please select a city first.'); return; }
     if (!category) { Alert.alert('Select Category', 'Please select a business category.'); return; }
     setIsSearching(true);
     setError('');
     setHasSearched(true);
     try {
-      const res = await searchPlaces(city, category);
+      const res = useMyLocation && locationCoords
+        ? await searchPlaces({ category, location: { ...locationCoords, radiusMeters: 15000 } })
+        : await searchPlaces({ category, city });
       setResults(res);
-      if (res.length === 0) setError('No businesses found. Try a different city or category.');
+      if (res.length === 0) setError('No businesses found. Try a different city, area, or category.');
       else Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Search failed';
@@ -68,7 +112,7 @@ export default function SearchScreen() {
       rating: result.rating,
       totalRatings: result.totalRatings,
       category,
-      city,
+      city: useMyLocation ? locationLabel : city,
       status: 'New',
       notes: '',
       tags: [],
@@ -114,17 +158,46 @@ export default function SearchScreen() {
       </View>
 
       <View style={styles.form}>
-        <TouchableOpacity
-          style={[styles.picker, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => { setPicker('city'); setPickerQuery(''); }}
-          activeOpacity={0.8}
-        >
-          <MapPin size={18} color={city ? colors.primary : colors.mutedForeground} />
-          <Text style={[styles.pickerText, { color: city ? colors.foreground : colors.mutedForeground }]}>
-            {city || 'Select City'}
-          </Text>
-          <ChevronDown size={16} color={colors.mutedForeground} />
-        </TouchableOpacity>
+        {useMyLocation ? (
+          <View style={[styles.picker, styles.locationChip, { backgroundColor: colors.card, borderColor: colors.primary }]}>
+            <MapPin size={18} color={colors.primary} />
+            <Text style={[styles.pickerText, { color: colors.foreground }]} numberOfLines={1}>
+              Near {locationLabel || 'you'}
+            </Text>
+            <TouchableOpacity onPress={clearLocation} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <X size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={[styles.picker, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => { setPicker('city'); setPickerQuery(''); }}
+              activeOpacity={0.8}
+            >
+              <MapPin size={18} color={city ? colors.primary : colors.mutedForeground} />
+              <Text style={[styles.pickerText, { color: city ? colors.foreground : colors.mutedForeground }]}>
+                {city || 'Select City'}
+              </Text>
+              <ChevronDown size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.locationLink}
+              onPress={handleUseMyLocation}
+              disabled={isLocating}
+              activeOpacity={0.7}
+            >
+              {isLocating
+                ? <ActivityIndicator size="small" color={colors.primary} />
+                : <MapPin size={13} color={colors.primary} />
+              }
+              <Text style={[styles.locationLinkText, { color: colors.primary }]}>
+                {isLocating ? 'Getting your location...' : 'Use my current location instead'}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         <TouchableOpacity
           style={[styles.picker, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -161,7 +234,7 @@ export default function SearchScreen() {
         <EmptyState
           icon={<Search size={28} color={colors.mutedForeground} />}
           title="Search for Businesses"
-          subtitle="Select a city and category, then tap Search to find potential leads"
+          subtitle="Select a city or use your current location, pick a category, then tap Search to find potential leads"
         />
       )}
 
@@ -324,6 +397,12 @@ const styles = StyleSheet.create({
     borderRadius: 12, borderWidth: 1, padding: 14,
   },
   pickerText: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 15 },
+  locationChip: { borderWidth: 1.5 },
+  locationLink: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 4, paddingHorizontal: 2, alignSelf: 'flex-start',
+  },
+  locationLinkText: { fontFamily: 'Inter_500Medium', fontSize: 13 },
   searchBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, borderRadius: 12, padding: 15,

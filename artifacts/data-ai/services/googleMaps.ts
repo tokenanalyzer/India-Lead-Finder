@@ -34,10 +34,39 @@ function getStoredApiKey(): string {
   return useSettingsStore.getState().googleApiKey.trim();
 }
 
-export async function searchPlaces(city: string, category: string): Promise<SearchResult[]> {
+export interface SearchLocation {
+  latitude: number;
+  longitude: number;
+  /** Search radius in meters. Google caps this at 50000. */
+  radiusMeters?: number;
+}
+
+export interface SearchParams {
+  category: string;
+  /** Provide either a city name (existing flow) or GPS coordinates (near-me flow). */
+  city?: string;
+  location?: SearchLocation;
+}
+
+export async function searchPlaces(params: SearchParams): Promise<SearchResult[]> {
   const apiKey = getStoredApiKey();
   if (!apiKey) {
     throw new Error('No API key configured. Add your Google Maps API key in the Settings tab.');
+  }
+
+  const body: Record<string, unknown> = {
+    textQuery: params.city ? `${params.category} in ${params.city}, India` : params.category,
+    languageCode: 'en',
+    maxResultCount: 20,
+  };
+
+  if (params.location) {
+    body.locationBias = {
+      circle: {
+        center: { latitude: params.location.latitude, longitude: params.location.longitude },
+        radius: Math.min(params.location.radiusMeters ?? 15000, 50000),
+      },
+    };
   }
 
   let res: Response;
@@ -49,11 +78,7 @@ export async function searchPlaces(city: string, category: string): Promise<Sear
         'X-Goog-Api-Key': apiKey,
         'X-Goog-FieldMask': SEARCH_FIELD_MASK,
       },
-      body: JSON.stringify({
-        textQuery: `${category} in ${city}, India`,
-        languageCode: 'en',
-        maxResultCount: 20,
-      }),
+      body: JSON.stringify(body),
     });
   } catch {
     throw new Error('Network error — check your connection');
