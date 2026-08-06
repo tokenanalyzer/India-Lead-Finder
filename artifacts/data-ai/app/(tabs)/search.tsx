@@ -38,6 +38,11 @@ export default function SearchScreen() {
   const [locationCoords, setLocationCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationLabel, setLocationLabel] = useState('');
   const [isLocating, setIsLocating] = useState(false);
+  // What the *currently displayed* results were actually searched with — kept
+  // separate from the live picker state so switching city/category after
+  // searching (without re-searching) can't mislabel a saved lead.
+  const [searchedCity, setSearchedCity] = useState('');
+  const [searchedCategory, setSearchedCategory] = useState('');
 
   const savedPlaceIds = useMemo(() => new Set(leads.map(l => l.placeId)), [leads]);
 
@@ -55,7 +60,12 @@ export default function SearchScreen() {
         Alert.alert('Location Permission Needed', 'Allow location access to find businesses near you, or select a city manually.');
         return;
       }
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const pos = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 15000)
+        ),
+      ]);
       const { latitude, longitude } = pos.coords;
 
       let label = 'your location';
@@ -89,6 +99,8 @@ export default function SearchScreen() {
         ? await searchPlaces({ category, location: { ...locationCoords, radiusMeters: 15000 } })
         : await searchPlaces({ category, city });
       setResults(res);
+      setSearchedCity(useMyLocation ? locationLabel : city);
+      setSearchedCategory(category);
       if (res.length === 0) setError('No businesses found. Try a different city, area, or category.');
       else Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: unknown) {
@@ -111,8 +123,8 @@ export default function SearchScreen() {
       website: result.website,
       rating: result.rating,
       totalRatings: result.totalRatings,
-      category,
-      city: useMyLocation ? locationLabel : city,
+      category: searchedCategory,
+      city: searchedCity,
       status: 'New',
       notes: '',
       tags: [],

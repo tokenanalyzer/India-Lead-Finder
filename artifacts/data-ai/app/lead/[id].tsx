@@ -151,7 +151,7 @@ export default function LeadDetailScreen() {
 
   const handleWhatsApp = useCallback(async () => {
     if (!phone) { Alert.alert('No Phone', 'No phone number available. Tap "Details" to fetch.'); return; }
-    const digits = phone.replace(/\D/g, '');
+    const digits = phone.replace(/\D/g, '').replace(/^0+/, '');
     const number = digits.startsWith('91') && digits.length === 12 ? digits : `91${digits}`;
     const msg = encodeURIComponent(`Hello, I came across your business "${lead?.name}" and would like to connect.`);
     Linking.openURL(`https://wa.me/${number}?text=${msg}`);
