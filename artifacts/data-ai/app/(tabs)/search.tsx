@@ -4,7 +4,7 @@ import {
   ActivityIndicator, TextInput, Alert, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, MapPin, Star, ChevronDown, Check, X, Copy } from 'lucide-react-native';
+import { Search, MapPin, Star, ChevronDown, Check, X, Copy, Navigation, GlobeOff } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import * as Location from 'expo-location';
@@ -43,8 +43,45 @@ export default function SearchScreen() {
   // searching (without re-searching) can't mislabel a saved lead.
   const [searchedCity, setSearchedCity] = useState('');
   const [searchedCategory, setSearchedCategory] = useState('');
+  const [noWebsiteOnly, setNoWebsiteOnly] = useState(false);
 
   const savedPlaceIds = useMemo(() => new Set(leads.map(l => l.placeId)), [leads]);
+
+  // Sort nearest-first when we searched by GPS — a plain lat/lng distance
+  // is plenty accurate at city-block scale, no need for a routing API call.
+  const sortedResults = useMemo(() => {
+    const withDistance = results.map(r => {
+      const hasCoords = useMyLocation && locationCoords && r.lat != null && r.lng != null;
+      let distanceKm: number | undefined;
+      if (hasCoords) {
+        const R = 6371;
+        const dLat = (r.lat! - locationCoords!.latitude) * Math.PI / 180;
+        const dLng = (r.lng! - locationCoords!.longitude) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 +
+          Math.cos(locationCoords!.latitude * Math.PI / 180) * Math.cos(r.lat! * Math.PI / 180) *
+          Math.sin(dLng / 2) ** 2;
+        distanceKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      }
+      return { ...r, distanceKm };
+    });
+    if (useMyLocation && locationCoords) {
+      return withDistance.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+    }
+    return withDistance;
+  }, [results, useMyLocation, locationCoords]);
+
+  const visibleResults = useMemo(
+    () => (noWebsiteOnly ? sortedResults.filter(r => !r.website) : sortedResults),
+    [sortedResults, noWebsiteOnly]
+  );
+
+  const marketStats = useMemo(() => {
+    if (results.length === 0) return null;
+    const rated = results.filter(r => r.rating > 0);
+    const avgRating = rated.length > 0 ? rated.reduce((s, r) => s + r.rating, 0) / rated.length : 0;
+    const noWebsiteCount = results.filter(r => !r.website).length;
+    return { total: results.length, avgRating, noWebsiteCount };
+  }, [results]);
 
   const clearLocation = () => {
     setUseMyLocation(false);
@@ -258,8 +295,34 @@ export default function SearchScreen() {
         />
       )}
 
+      {marketStats && (
+        <View style={styles.snapshotRow}>
+          <Text style={[styles.snapshotText, { color: colors.mutedForeground }]}>
+            {marketStats.total} results
+            {marketStats.avgRating > 0 ? ` · avg ★${marketStats.avgRating.toFixed(1)}` : ''}
+            {marketStats.noWebsiteCount > 0 ? ` · ${marketStats.noWebsiteCount} without a website` : ''}
+          </Text>
+          {marketStats.noWebsiteCount > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.filterChip,
+                { borderColor: noWebsiteOnly ? colors.primary : colors.border,
+                  backgroundColor: noWebsiteOnly ? colors.primary + '20' : 'transparent' },
+              ]}
+              onPress={() => setNoWebsiteOnly(v => !v)}
+              activeOpacity={0.8}
+            >
+              <GlobeOff size={12} color={noWebsiteOnly ? colors.primary : colors.mutedForeground} />
+              <Text style={[styles.filterChipText, { color: noWebsiteOnly ? colors.primary : colors.mutedForeground }]}>
+                No Website Only
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
       <FlatList
-        data={results}
+        data={visibleResults}
         keyExtractor={i => i.placeId}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
@@ -276,14 +339,30 @@ export default function SearchScreen() {
                 <Text style={[styles.resultName, { color: colors.foreground }]} numberOfLines={2}>
                   {item.name}
                 </Text>
-                {item.rating > 0 && (
-                  <View style={styles.ratingRow}>
-                    <Star size={12} color="#F59E0B" fill="#F59E0B" />
-                    <Text style={[styles.ratingText, { color: colors.mutedForeground }]}>
-                      {item.rating.toFixed(1)}  ({item.totalRatings})
-                    </Text>
-                  </View>
-                )}
+                <View style={styles.badgeRow}>
+                  {item.rating > 0 && (
+                    <View style={styles.ratingRow}>
+                      <Star size={12} color="#F59E0B" fill="#F59E0B" />
+                      <Text style={[styles.ratingText, { color: colors.mutedForeground }]}>
+                        {item.rating.toFixed(1)}  ({item.totalRatings})
+                      </Text>
+                    </View>
+                  )}
+                  {item.distanceKm != null && (
+                    <View style={styles.ratingRow}>
+                      <Navigation size={11} color={colors.mutedForeground} />
+                      <Text style={[styles.ratingText, { color: colors.mutedForeground }]}>
+                        {item.distanceKm < 1 ? `${Math.round(item.distanceKm * 1000)} m` : `${item.distanceKm.toFixed(1)} km`}
+                      </Text>
+                    </View>
+                  )}
+                  {!item.website && (
+                    <View style={styles.noWebsiteBadge}>
+                      <GlobeOff size={11} color="#F59E0B" />
+                      <Text style={styles.noWebsiteBadgeText}>No Website</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={[styles.resultAddr, { color: colors.mutedForeground }]} numberOfLines={2}>
                   {item.address}
                 </Text>
@@ -422,11 +501,27 @@ const styles = StyleSheet.create({
   searchBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: '#fff' },
   errorBox: { marginHorizontal: 16, marginBottom: 8, borderRadius: 10, borderWidth: 1, padding: 12 },
   errorText: { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 18 },
+  snapshotRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, marginBottom: 6, gap: 8,
+  },
+  snapshotText: { fontFamily: 'Inter_400Regular', fontSize: 12, flex: 1 },
+  filterChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderWidth: 1.5, borderRadius: 100, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  filterChipText: { fontFamily: 'Inter_600SemiBold', fontSize: 11 },
   list: { paddingBottom: 100 },
   resultCard: {
     flexDirection: 'row', alignItems: 'center', marginHorizontal: 16,
     marginVertical: 5, borderRadius: 12, borderWidth: 1, padding: 12, gap: 10,
   },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  noWebsiteBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: '#F59E0B20', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
+  },
+  noWebsiteBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: '#F59E0B' },
   resultInfo: { flex: 1, gap: 4 },
   resultName: { fontFamily: 'Inter_600SemiBold', fontSize: 14, lineHeight: 20 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
