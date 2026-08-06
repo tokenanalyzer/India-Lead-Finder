@@ -157,13 +157,13 @@ export default function SettingsScreen() {
           <View style={[styles.inputRow, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1.5 }]}>
             <TextInput
               style={[styles.input, { color: colors.foreground }]}
-              value={showKey ? inputKey : (inputKey ? inputKey.slice(0, 8) + '●'.repeat(Math.max(0, inputKey.length - 12)) + inputKey.slice(-4) : '')}
+              value={inputKey}
               onChangeText={setInputKey}
               placeholder="AIzaSy..."
               placeholderTextColor={colors.mutedForeground}
               autoCapitalize="none"
               autoCorrect={false}
-              secureTextEntry={false}
+              secureTextEntry={!showKey}
             />
             <TouchableOpacity onPress={() => setShowKey(v => !v)} style={styles.eyeBtn}>
               {showKey ? <EyeOff size={18} color={colors.mutedForeground} /> : <Eye size={18} color={colors.mutedForeground} />}

@@ -4,11 +4,23 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Search, TrendingUp, Award, Users, ChevronRight } from 'lucide-react-native';
+import { Search, TrendingUp, Award, Users, ChevronRight, Key } from 'lucide-react-native';
 import { useColors } from '@/hooks/useColors';
 import { useLeadsStore } from '@/store/leadsStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { LeadCard } from '@/components/LeadCard';
 import { EmptyState } from '@/components/EmptyState';
+
+const STEPS_NO_KEY = [
+  'Add your free Google Maps API key in Settings',
+  'Pick a city (or use your current location) and a category',
+  'Save the businesses you like — they show up here as leads to track',
+];
+const STEPS_WITH_KEY = [
+  'Pick a city (or use your current location) and a category',
+  'Tap Search to pull real businesses straight from Google Maps',
+  'Save the ones you like — they show up here as leads to track',
+];
 
 function StatTile({ label, value, color }: { label: string; value: string | number; color: string }) {
   const colors = useColors();
@@ -26,6 +38,9 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const leads = useLeadsStore(s => s.leads);
+  const googleApiKey = useSettingsStore(s => s.googleApiKey);
+  const settingsLoaded = useSettingsStore(s => s.isLoaded);
+  const hasApiKey = googleApiKey.trim().length > 0;
 
   const total = leads.length;
   const newLeads = leads.filter(l => l.status === 'New').length;
@@ -72,6 +87,25 @@ export default function DashboardScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: 100 }]}
         showsVerticalScrollIndicator={false}
       >
+        {settingsLoaded && !hasApiKey && (
+          <TouchableOpacity
+            style={[styles.setupBanner, { backgroundColor: '#F59E0B15', borderColor: '#F59E0B40' }]}
+            onPress={() => router.push('/(tabs)/settings')}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.setupIconWrap, { backgroundColor: '#F59E0B25' }]}>
+              <Key size={18} color="#F59E0B" />
+            </View>
+            <View style={styles.setupTextWrap}>
+              <Text style={[styles.setupTitle, { color: colors.foreground }]}>Add your Google Maps API key</Text>
+              <Text style={[styles.setupSubtitle, { color: colors.mutedForeground }]}>
+                Required to search — it's free to set up in Settings
+              </Text>
+            </View>
+            <ChevronRight size={18} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        )}
+
         <View style={styles.tilesGrid}>
           <StatTile label="Total Leads" value={total} color={colors.primary} />
           <StatTile label="New" value={newLeads} color="#3B82F6" />
@@ -94,13 +128,26 @@ export default function DashboardScreen() {
         </View>
 
         {leads.length === 0 ? (
-          <EmptyState
-            icon={<Users size={28} color={colors.mutedForeground} />}
-            title="No Leads Yet"
-            subtitle="Tap the search button to find businesses and start filling your pipeline"
-            actionLabel="Search Now"
-            onAction={() => router.push('/(tabs)/search')}
-          />
+          <>
+            <EmptyState
+              icon={<Users size={28} color={colors.mutedForeground} />}
+              title="No Leads Yet"
+              subtitle="Tap the search button to find businesses and start filling your pipeline"
+              actionLabel="Search Now"
+              onAction={() => router.push('/(tabs)/search')}
+            />
+            <View style={[styles.stepsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.stepsTitle, { color: colors.foreground }]}>Getting Started</Text>
+              {(hasApiKey ? STEPS_WITH_KEY : STEPS_NO_KEY).map((text, i) => (
+                <View key={text} style={styles.stepRow}>
+                  <View style={[styles.stepNum, { backgroundColor: colors.primary + '20' }]}>
+                    <Text style={[styles.stepNumText, { color: colors.primary }]}>{i + 1}</Text>
+                  </View>
+                  <Text style={[styles.stepText, { color: colors.mutedForeground }]}>{text}</Text>
+                </View>
+              ))}
+            </View>
+          </>
         ) : (
           recent.map(lead => <LeadCard key={lead.id} lead={lead} />)
         )}
@@ -161,6 +208,20 @@ const styles = StyleSheet.create({
 
   searchFab: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   scroll: { paddingHorizontal: 16 },
+  setupBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 16,
+  },
+  setupIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  setupTextWrap: { flex: 1 },
+  setupTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 14, marginBottom: 2 },
+  setupSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 12 },
+  stepsCard: { borderRadius: 14, borderWidth: 1, padding: 16, gap: 14, marginTop: -8 },
+  stepsTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 15, marginBottom: 2 },
+  stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  stepNum: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  stepNumText: { fontFamily: 'Inter_700Bold', fontSize: 12 },
+  stepText: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 19 },
   tilesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
   tile: {
     flex: 1, minWidth: '45%', borderRadius: 14, borderWidth: 1,

@@ -36,10 +36,12 @@ export async function initDB(): Promise<void> {
       placeId TEXT DEFAULT '',
       lat REAL,
       lng REAL,
-      dataFetchedAt TEXT DEFAULT ''
+      dataFetchedAt TEXT DEFAULT '',
+      contactLog TEXT DEFAULT '[]'
     );
   `);
   await migrateAddColumn(_db, "leads", "dataFetchedAt", "TEXT DEFAULT ''");
+  await migrateAddColumn(_db, "leads", "contactLog", "TEXT DEFAULT '[]'");
 }
 
 async function getDB(): Promise<SQLite.SQLiteDatabase> {
@@ -50,6 +52,8 @@ async function getDB(): Promise<SQLite.SQLiteDatabase> {
 function parseRow(row: Record<string, unknown>): Lead {
   let tags: string[] = [];
   try { tags = JSON.parse((row.tags as string) || '[]'); } catch { tags = []; }
+  let contactLog: Lead['contactLog'] = [];
+  try { contactLog = JSON.parse((row.contactLog as string) || '[]'); } catch { contactLog = []; }
   return {
     id: row.id as string,
     name: (row.name as string) || '',
@@ -68,6 +72,7 @@ function parseRow(row: Record<string, unknown>): Lead {
     lat: row.lat as number | undefined,
     lng: row.lng as number | undefined,
     dataFetchedAt: (row.dataFetchedAt as string) || undefined,
+    contactLog,
   };
 }
 
@@ -84,12 +89,13 @@ export async function saveLead(lead: Lead): Promise<void> {
   await db.runAsync(
     `INSERT OR REPLACE INTO leads
      (id, name, address, phone, website, rating, totalRatings, category, city,
-      status, notes, tags, savedAt, placeId, lat, lng, dataFetchedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      status, notes, tags, savedAt, placeId, lat, lng, dataFetchedAt, contactLog)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [lead.id, lead.name, lead.address, lead.phone, lead.website,
      lead.rating, lead.totalRatings, lead.category, lead.city,
      lead.status, lead.notes, JSON.stringify(lead.tags),
-     lead.savedAt, lead.placeId, lead.lat ?? null, lead.lng ?? null, lead.dataFetchedAt ?? '']
+     lead.savedAt, lead.placeId, lead.lat ?? null, lead.lng ?? null, lead.dataFetchedAt ?? '',
+     JSON.stringify(lead.contactLog ?? [])]
   );
 }
 
@@ -97,10 +103,11 @@ export async function updateLead(lead: Lead): Promise<void> {
   const db = await getDB();
   await db.runAsync(
     `UPDATE leads SET name=?, address=?, phone=?, website=?, rating=?, totalRatings=?,
-     category=?, city=?, status=?, notes=?, tags=?, placeId=?, lat=?, lng=?, dataFetchedAt=? WHERE id=?`,
+     category=?, city=?, status=?, notes=?, tags=?, placeId=?, lat=?, lng=?, dataFetchedAt=?, contactLog=? WHERE id=?`,
     [lead.name, lead.address, lead.phone, lead.website, lead.rating, lead.totalRatings,
      lead.category, lead.city, lead.status, lead.notes, JSON.stringify(lead.tags),
-     lead.placeId, lead.lat ?? null, lead.lng ?? null, lead.dataFetchedAt ?? '', lead.id]
+     lead.placeId, lead.lat ?? null, lead.lng ?? null, lead.dataFetchedAt ?? '',
+     JSON.stringify(lead.contactLog ?? []), lead.id]
   );
 }
 
